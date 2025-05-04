@@ -28,7 +28,7 @@ OrgLens connects to your GitHub organization, analyzes repositories, commits, an
 ## Tech Stack
 
 *   **Backend:** Python (Django), Llama API
-*   **Frontend:** [e.g., React, Vue, Svelte], Node.js, [e.g., Tailwind CSS]
+*   **Frontend:** ReactJS, Vite, Tailwind CSS
 *   **APIs:** GitHub API
 
 ## Getting Started
