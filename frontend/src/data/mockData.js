@@ -5,7 +5,6 @@ export const mockData = {
       "name": "QuantumLeap UI",
       "url": "https://github.com/mock-org/quantumleap-ui",
       "summary": "Frontend framework for building next-generation user interfaces.",
-      "language": "TypeScript",
       "created_at": "2025-04-24T00:16:43.802567+00:00",
       "updated_at": "2025-05-04T00:16:43.802567+00:00"
     },
@@ -14,7 +13,6 @@ export const mockData = {
       "name": "DataHarvester API",
       "url": "https://github.com/mock-org/dataharvester-api",
       "summary": "High-performance API for collecting and processing real-time data streams.",
-      "language": "Go",
       "created_at": "2025-04-24T00:16:43.802919+00:00",
       "updated_at": "2025-05-04T00:16:43.802919+00:00"
     }

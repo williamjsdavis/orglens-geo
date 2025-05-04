@@ -1,178 +1,217 @@
 /* eslint-disable no-unused-vars */
-import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react'; // Added useRef, useEffect
-import  { ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  Position,
-  MarkerType
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import {
+    ReactFlow,
+    Background,
+    Controls,
+    MiniMap,
+    useNodesState,
+    useEdgesState,
+    // Position removed as layout engine will set it
+    MarkerType,
+    useReactFlow // Hook to get react flow instance
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css'
+import ELK from 'elkjs/lib/elk.bundled.js'; // Import ELK
+
 import RepositoryNode from './RepositoryNode';
 import ContributorNode from './ContributorNode';
-import CustomTooltip from './CustomTooltip';
 
-// Define custom node types
 const nodeTypes = {
-  repository: RepositoryNode,
-  contributor: ContributorNode,
+    repository: RepositoryNode,
+    contributor: ContributorNode,
 };
 
-const OrganizationGraph = ({ repositories, contributors }) => {
-  const [hoveredElement, setHoveredElement] = useState(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const graphContainerRef = useRef(null); // Ref for the graph container
+// --- ELK Layout Function ---
+const elk = new ELK();
 
-  const handleNodeHover = useCallback((node, event) => {
-    if (node && event && graphContainerRef.current) {
-      const containerRect = graphContainerRef.current.getBoundingClientRect();
-      // Calculate position relative to the container
-      const x = event.clientX - containerRect.left;
-      const y = event.clientY - containerRect.top;
-      setHoveredElement(node);
-      setTooltipPosition({ x, y });
-    } else {
-      setHoveredElement(null);
+// Updated ELK options for layered layout
+const elkOptions = {
+    'elk.algorithm': 'org.eclipse.elk.layered', // Use layered algorithm
+    'elk.direction': 'DOWN', // Arrange layers top-to-bottom
+    'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': '100', // Space between layers
+    'org.eclipse.elk.spacing.nodeNode': '80', // Space between nodes within a layer
+    'org.eclipse.elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX', // Or 'BRANDES_KOEPF' or 'SIMPLE'
+    'org.eclipse.elk.layered.cycleBreaking.strategy': 'GREEDY', // Helps with cycles if any
+    // Assign nodes to partitions (layers) based on type
+    'org.eclipse.elk.partitioning.activate': 'true',
+};
+
+const getLayoutedElements = async (nodes, edges, options = {}) => {
+    // Elkjs needs nodes with 'id', 'width', 'height' and edges with 'id', 'source', 'target'
+    const graph = {
+        id: 'root',
+        layoutOptions: { ...elkOptions, ...options },
+        children: nodes.map((node) => ({
+            ...node,
+            // Pass width and height obtained from node.style or default
+            width: node.style?.width || 150,
+            height: node.style?.height || 50,
+            // Assign partition based on node type for layering
+            layoutOptions: {
+                'org.eclipse.elk.partitioning.partition': node.type === 'repository' ? 0 : 1, // Repos layer 0, Contributors layer 1
+            },
+        })),
+        edges: edges,
+    };
+
+    try {
+        const layoutedGraph = await elk.layout(graph);
+        return {
+            nodes: layoutedGraph.children.map((node) => ({
+                ...node,
+                // React Flow uses 'position' not 'x', 'y' directly in the node object
+                position: { x: node.x, y: node.y },
+            })),
+            edges: layoutedGraph.edges || [], // Return edges as well, ELK might add layout info
+        };
+    } catch (error) {
+        console.error('ELK layout failed:', error);
+        // Fallback: return original nodes/edges or handle error appropriately
+        return { nodes, edges };
     }
-  }, []); // Removed graphContainerRef from dependencies as it's stable
-
-  // Process data for React Flow
-  const { initialNodes, initialEdges } = useMemo(() => {
-    const nodes = [];
-    const edges = [];
-    const center = { x: 400, y: 300 }; // Define center point
-
-    // Calculate positions for layout
-    const repoRadius = 150; // Give repositories a radius to spread them
-    const contributorRadius = 350; // Increase contributor radius slightly
-    const repoCount = repositories.length;
-    const contributorCount = contributors.length;
-
-    // Add repository nodes in a smaller circle
-    repositories.forEach((repo, index) => {
-      const angle = (index / repoCount) * 2 * Math.PI;
-      // Offset slightly if only one repo to avoid exact center
-      const radius = repoCount > 1 ? repoRadius : 50;
-      const x = center.x + radius * Math.cos(angle);
-      const y = center.y + radius * Math.sin(angle);
-
-      nodes.push({
-        id: `repo-${repo.id}`,
-        type: 'repository',
-        data: {
-          ...repo,
-          onNodeHover: handleNodeHover,
-        },
-        position: { x, y },
-        style: { width: 180, height: 120 }
-      });
-    });
+};
+// --- End ELK Layout Function ---
 
 
-    // Add contributor nodes around repos in a circular pattern
-    contributors.forEach((contributor, index) => {
-      const angle = (index / contributorCount) * 2 * Math.PI;
-      const x = center.x + contributorRadius * Math.cos(angle);
-      const y = center.y + contributorRadius * Math.sin(angle);
+const OrganizationGraph = ({ repositories, contributors }) => {
+    // Use initial empty state, layout will populate it
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [isLayouting, setIsLayouting] = useState(false); // State to track layout process
+    const { fitView } = useReactFlow(); // Get fitView function
 
-      nodes.push({
-        id: `user-${contributor.id}`,
-        type: 'contributor',
-        data: {
-          ...contributor,
-          onNodeHover: handleNodeHover,
-        },
-        position: { x, y },
-        style: { width: 150, height: 80 }
-      });
+    // Ref to store layout promise to prevent race conditions if data changes quickly
+    const layoutPromiseRef = useRef(null);
 
-      // Create edges between contributors and repositories
-      contributor.works.forEach(work => {
-        // Ensure the target repository exists before creating an edge
-        if (repositories.some(repo => `repo-${repo.id}` === `repo-${work.repository}`)) {
-            edges.push({
-              id: `edge-${contributor.id}-${work.repository}`,
-              source: `user-${contributor.id}`,
-              target: `repo-${work.repository}`,
-              // animated: true, // Remove or keep based on preference
-              type: 'smoothstep', // Use smoothstep edges
-              style: { stroke: '#9ca3af', strokeWidth: 1.5 }, // Adjusted style
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                width: 15, // Adjusted size
-                height: 15,
-                color: '#6b7280', // Adjusted color
-              },
-              data: {
-                commits: work.commits?.length || 0,
-                issues: work.issues?.length || 0,
-              },
+     useEffect(() => {
+        // --- 1. Prepare Nodes and Edges (without initial positions) ---
+        const initialNodes = [];
+        const initialEdges = [];
+
+        repositories.forEach((repo) => {
+            initialNodes.push({
+                id: `repo-${repo.id}`,
+                type: 'repository', // Keep type for partitioning
+                data: repo,
+                position: { x: 0, y: 0 }, // Initial position (will be overridden)
+                // Ensure style has width/height for ELK
+                style: { width: 220, height: 150 }
             });
-        }
-      });
-    });
+        });
 
-    return { initialNodes: nodes, initialEdges: edges };
-  }, [repositories, contributors, handleNodeHover]);
+        contributors.forEach((contributor) => {
+            initialNodes.push({
+                id: `user-${contributor.id}`,
+                type: 'contributor', // Keep type for partitioning
+                data: contributor,
+                position: { x: 0, y: 0 }, // Initial position (will be overridden)
+                // Ensure style has width/height for ELK
+                style: { width: 180, height: 60 }
+            });
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+            contributor.works.forEach(work => {
+                const targetRepoExists = repositories.some(repo => `repo-${repo.id}` === `repo-${work.repository}`);
+                if (targetRepoExists) {
+                    initialEdges.push({
+                        id: `edge-${contributor.id}-${work.repository}`,
+                        source: `user-${contributor.id}`,
+                        target: `repo-${work.repository}`,
+                        // Connect to the default handles (center of sides)
+                        // targetHandle: 'l-t', // Specify target handle on repository node if needed
+                        // sourceHandle: 'r-b', // Specify source handle on contributor node if needed
+                        type: 'smoothstep', // Good choice for nicer curves
+                        style: { stroke: '#9ca3af', strokeWidth: 1.5 },
+                        markerEnd: {
+                            type: MarkerType.ArrowClosed,
+                            width: 15,
+                            height: 15,
+                            color: '#6b7280',
+                        },
+                        data: {
+                            commits: work.commits?.length || 0,
+                            issues: work.issues?.length || 0,
+                        },
+                    });
+                }
+            });
+        });
+
+        // --- 2. Run Layout ---
+        setIsLayouting(true);
+        const currentLayoutPromise = getLayoutedElements(initialNodes, initialEdges)
+            .then(({ nodes: layoutedNodes, edges: layoutedEdges }) => {
+                 // Only update state if this promise is still the latest one
+                 if (currentLayoutPromise === layoutPromiseRef.current) {
+                    setNodes(layoutedNodes);
+                    setEdges(layoutedEdges);
+                    window.requestAnimationFrame(() => {
+                         // Slightly delay fitView to allow React Flow to update positions
+                         fitView({ padding: 0.15, duration: 300 });
+                    });
+                    setIsLayouting(false);
+                }
+            })
+            .catch(error => {
+                console.error("Layout failed:", error);
+                 // Optionally set original nodes/edges as fallback
+                 if (currentLayoutPromise === layoutPromiseRef.current) {
+                    setNodes(initialNodes); // Fallback to unpositioned nodes
+                    setEdges(initialEdges);
+                    setIsLayouting(false);
+                    // maybe call fitView here too for fallback
+                 }
+            });
+
+        // Store the promise in the ref
+        layoutPromiseRef.current = currentLayoutPromise;
 
 
-  // Recalculate nodes and edges if props change
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+    }, [repositories, contributors, setNodes, setEdges, fitView]);
+    // onInit is less critical now as fitView is called after layout
+    // const onInit = useCallback((reactFlowInstance) => {
+    //   // We now call fitView after the layout effect finishes
+    // }, [fitView]); // Include fitView if you keep onInit
 
-
-  const onInit = useCallback((reactFlowInstance) => {
-    // Fit view on initial load
-     setTimeout(() => reactFlowInstance.fitView({ padding: 0.1, duration: 300 }), 50);
-  }, []);
-
-  return (
-    // Added ref to the container div
-    <div ref={graphContainerRef} className="graph-container relative w-full h-[600px] rounded-lg bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        onInit={onInit}
-        fitView
-        fitViewOptions={{ padding: 0.1 }} // Add padding on fitView
-        minZoom={0.1} // Allow zooming out further
-        maxZoom={2}
-        // defaultZoom={0.8} // Remove defaultZoom to rely on fitView
-        attributionPosition="bottom-right"
-      >
-        <Background color="#e0e0e0" gap={20} size={1.5} />
-        <Controls />
-        <MiniMap
-          nodeStrokeWidth={3}
-          zoomable
-          pannable
-          nodeColor={(node) => {
-            if (node.type === 'repository') return '#60a5fa'; // Lighter blue
-            return '#34d399'; // Lighter green
-          }}
-          style={{ backgroundColor: 'rgba(241, 245, 249, 0.8)' }} // Slightly transparent background
-          maskColor="rgba(203, 213, 225, 0.6)" // Softer mask color
-        />
-      </ReactFlow>
-      {hoveredElement && (
-        <CustomTooltip
-          content={hoveredElement}
-          position={tooltipPosition}
-          // onClose is not defined in CustomTooltip props, removed for now
-        />
-      )}
-    </div>
-  );
+    return (
+        <div className="graph-container relative w-full h-[600px] rounded-lg bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
+             {isLayouting && (
+                 <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, background: 'rgba(255,255,255,0.8)', padding: '5px 10px', borderRadius: '5px' }}>
+                     Calculating layout...
+                 </div>
+             )}
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                nodeTypes={nodeTypes}
+                // onInit={onInit} // Can likely remove this
+                // fitView // fitView is now triggered manually after layout
+                fitViewOptions={{ padding: 0.15 }}
+                minZoom={0.1}
+                maxZoom={2}
+                attributionPosition="bottom-right"
+                elementsSelectable={true}
+                nodesDraggable={true}
+                nodesConnectable={false} // Keep false unless needed
+            >
+                <Background color="#e0e0e0" gap={20} size={1.5} />
+                <Controls />
+                <MiniMap
+                    nodeStrokeWidth={3}
+                    zoomable
+                    pannable
+                    nodeColor={(node) => {
+                        if (node.type === 'repository') return '#60a5fa'; // Blue for repo
+                        return '#34d399'; // Green for contributor
+                    }}
+                    style={{ backgroundColor: 'rgba(241, 245, 249, 0.8)' }}
+                    maskColor="rgba(203, 213, 225, 0.6)"
+                />
+            </ReactFlow>
+        </div>
+    );
 };
 
 export default OrganizationGraph;

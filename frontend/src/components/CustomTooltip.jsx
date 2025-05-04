@@ -25,11 +25,7 @@ const CustomTooltip = ({ content, position }) => {
           
           {content.type === 'repository' && (
             <>
-              <div className="text-sm text-gray-600 mt-1">
-                <span className="inline-block px-2 py-1 bg-gray-100 rounded-full text-xs font-medium mr-2">
-                  {content.language || 'Unknown'}
-                </span>
-              </div>
+       
               <p className="text-sm mt-2">{content.summary}</p>
             </>
           )}

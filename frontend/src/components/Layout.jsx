@@ -38,7 +38,7 @@ const appNavigation = [
 
 // Placeholder data - keep as is for the layout structure
 const teams = [
-  { id: 1, name: 'Mock Org Team', href: '#', initial: 'M', current: false },
+  { id: 1, name: 'Meta Llama', href: '#', initial: 'M', current: false },
   // { id: 2, name: 'Tailwind Labs', href: '#', initial: 'T', current: false },
   // { id: 3, name: 'Workcation', href: '#', initial: 'W', current: false },
 ];

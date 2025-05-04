@@ -6,9 +6,11 @@ import Repositories from './pages/Repositories';
 import RepositoryDetail from './pages/RepositoryDetail';
 import Contributors from './pages/Contributors';
 import ContributorDetail from './pages/ContributorDetail';
+import { ReactFlowProvider } from '@xyflow/react';
 
 function App() {
   return (
+<ReactFlowProvider>
     <Routes>
       {/* Wrap all pages within the Layout component */}
       <Route path="/" element={<Layout />}>
@@ -31,6 +33,7 @@ function App() {
          <Route path="*" element={<div><h2>404 Not Found</h2><p>The page you requested does not exist.</p></div>} />
       </Route>
     </Routes>
+    </ReactFlowProvider>
   );
 }
 

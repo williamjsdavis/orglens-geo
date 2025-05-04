@@ -32,7 +32,6 @@ export default function RepositoryDetail() {
     <div>
       <h2 className="text-xl font-semibold mb-2">{repository.name}</h2>
       <p className="text-gray-700 mb-4">{repository.summary}</p>
-      <p><span className="font-semibold">Language:</span> {repository.language}</p>
       <p><span className="font-semibold">URL:</span> <a href={repository.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{repository.url}</a></p>
       <p><span className="font-semibold">Created:</span> {new Date(repository.created_at).toLocaleDateString()}</p>
       <p><span className="font-semibold">Last Updated:</span> {new Date(repository.updated_at).toLocaleDateString()}</p>

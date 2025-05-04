@@ -16,49 +16,45 @@ class Repository(models.Model):
     def __str__(self):
         return self.name
     
-class Issue(models.Model):
-    id = models.AutoField(primary_key=True)
-    url = models.URLField()
-    raw_data = models.JSONField()
-    summary = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return self.title
-
-class Commit(models.Model):
-    id = models.AutoField(primary_key=True)
-    url = models.URLField()
-    raw_data = models.JSONField()
-    summary = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.title
-
-class RepositoryWork(models.Model):
-    id = models.AutoField(primary_key=True)
-    repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
-    issues = models.ManyToManyField(Issue, blank=True)
-    commits = models.ManyToManyField(Commit, blank=True)
-    summary = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.repository.name} - {self.work_type}"
     
 class Contributor(models.Model):
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=255, unique=True)
     url = models.URLField()
     avatar_url = models.URLField()
-    works = models.ManyToManyField(RepositoryWork, blank=True)
     summary = models.TextField()    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.username
+
+class RepositoryWork(models.Model):
+    id = models.AutoField(primary_key=True)
+    repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
+    contributor = models.ForeignKey(Contributor, on_delete=models.CASCADE, related_name='works')
+    summary = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.repository.name}"
+    
+class Issue(models.Model):
+    id = models.AutoField(primary_key=True)
+    work = models.ForeignKey(RepositoryWork, on_delete=models.CASCADE, related_name='issues')
+    url = models.URLField()
+    raw_data = models.JSONField()
+    summary = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+class Commit(models.Model):
+    id = models.AutoField(primary_key=True)
+    work = models.ForeignKey(RepositoryWork, on_delete=models.CASCADE, related_name='commits')
+    url = models.URLField()
+    raw_data = models.JSONField()
+    summary = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

@@ -27,7 +27,6 @@ export default function Repositories() {
                 {repo.name}
               </Link>
               <p className="text-sm text-gray-600">{repo.summary}</p>
-              <span className="text-xs text-gray-500">{repo.language}</span>
             </li>
           ))}
         </ul>
