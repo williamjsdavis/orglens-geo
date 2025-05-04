@@ -23,45 +23,46 @@ LLAMA_MODEL = "Llama-4-Maverick-17B-128E-Instruct-FP8"
 LLAMA_BASE_URL = "https://api.llama.com/compat/v1/"
 
 # --- General Settings ---
-ISSUES_SYSTEM_PROMPT = """You are an AI assistant specialized in summarizing GitHub issues.
-Analyze the provided JSON data representing a GitHub issue.
-Generate a concise, informative summary (typically 1-2 sentences, max 3) focusing on the core problem, request, or topic described in the issue title and body (if available in the data).
-Ignore metadata like assignees, labels, or timestamps unless they are crucial to the core issue itself.
-Extract the essence of the issue based primarily on the 'title' and potentially 'body' fields within the JSON.
-If the provided data lacks sufficient information (e.g., missing title/body), output only the text "Cannot summarize".
-The summary should be plain text. Do not include markdown formatting like ```json.
+ISSUES_SYSTEM_PROMPT = """You are an AI assistant generating *detailed technical summaries* of GitHub issues based on their raw JSON data.
+Focus on the *specific technical problem* being addressed, the *proposed solution or task*, and any key *technical components, features, or modules* mentioned in the 'title' or 'body'.
+Be precise about *what* the issue entails technically (e.g., "Bug fix for null reference in UserAuth module during login", "Feature request to add pagination support to the /items API endpoint", "Task to refactor the data processing pipeline for efficiency").
+Avoid generalizations; stick to the technical facts presented in the data.
+If the provided data lacks sufficient technical detail (e.g., missing title/body), output only the text "Cannot summarize".
+Output should be a concise technical statement (2-3 sentences max). Do not include markdown formatting.
 """
 
-COMMITS_SYSTEM_PROMPT = """You are an AI assistant specialized in summarizing GitHub commits.
-Analyze the provided JSON data representing a GitHub commit.
-Generate a concise, informative summary (typically 1 sentence, max 2) focusing on the *main change* described in the commit message.
-If available, briefly mention the types of files changed (e.g., "Updated Python files and documentation") from the 'files_changed' field if it adds significant context, but prioritize the commit message content. Ignore the 'diff_patch' unless the message is uninformative.
-If the provided data lacks a meaningful message, output only the text "Cannot summarize".
-The summary should be plain text. Do not include markdown formatting like ```json.
+COMMITS_SYSTEM_PROMPT = """You are an AI assistant generating *detailed technical summaries* of GitHub commits based on their raw JSON data.
+Focus *precisely* on the *technical change implemented* in this commit, primarily using the 'message' field.
+Describe *what code was added, removed, or modified* and its *specific technical purpose* (e.g., "Fixed null pointer exception in UserAuth module by adding a check", "Refactored data fetching logic in ProductService for performance using async methods", "Added CRUD endpoints for the new 'UserProfile' resource").
+If the message is brief or generic, use file paths/types from 'files_changed' only to *infer the nature or scope of the technical change* (e.g., "Updated project documentation files", "Modified several frontend React components related to user settings", "Refactored database migration scripts").
+Be specific and technical. Avoid general statements.
+If the provided data lacks a meaningful message and file context, output only the text "Cannot summarize".
+Output should be a concise technical statement (1-2 sentences max). Do not include markdown formatting.
 """
 
-REPO_WORK_SYSTEM_PROMPT = """You are an AI assistant summarizing a contributor's work within a specific GitHub repository based on individual issue and commit summaries.
-You will be given a list of summaries for closed issues assigned to the contributor and commits authored by them in this repository.
-Synthesize these points into a coherent paragraph (2-4 sentences) describing the overall nature and key areas of the contributor's work in *this specific repository*.
-Focus on the substance of the contributions (e.g., "Fixed bugs related to X", "Implemented feature Y", "Refactored Z module", "Improved documentation for A and B").
-Do not simply list the summaries. Group similar activities if possible.
+REPO_WORK_SYSTEM_PROMPT = """You are an AI assistant summarizing a contributor's *specific contributions* within *one particular GitHub repository*.
+You will receive summaries of individual issues and commits detailing the technical tasks performed by the contributor in this repository.
+*Synthesize* these technical details into a coherent paragraph (2-4 sentences). Do not simply list the individual summaries.
+Describe the contributor's *primary activities and areas of focus within this specific repository*.
+*Identify and group the types of tasks* performed (e.g., "focused on bug fixing in the backend API", "primarily added new frontend features using React", "contributed heavily to improving test coverage and CI pipelines", "specialized in optimizing database queries").
+Mention key technical areas or components they worked on *in this repo* if a pattern emerges.
+The summary should reflect *what kind of work they did here*, bridging individual technical tasks towards a qualitative description of their role *in this repository*.
 If the provided list of summaries is empty or uninformative, output only the text "Cannot summarize".
 The summary should be plain text.
 """
 
-# --- NEW: Contributor System Prompt ---
-CONTRIBUTOR_SYSTEM_PROMPT = """You are an AI assistant creating a profile summary for a GitHub contributor based on summaries of their work across different repositories.
-You will be given a list of summaries describing the contributor's work in various repositories.
-Synthesize these points into a coherent paragraph (3-5 sentences) describing the contributor's overall activities, common themes in their work, and implied technical skills or areas of expertise.
-Focus on identifying patterns: What kind of tasks does this person typically handle (e.g., backend development, frontend fixes, testing, documentation, API design)? What technologies or areas do they seem proficient in?
-Avoid just listing the repository summaries. Generalize and infer skills where appropriate.
-Example output: "This contributor primarily focuses on backend development, frequently fixing bugs in API endpoints and refactoring database interaction modules across several projects. They demonstrate skills in Python and database management, with some contributions to CI/CD pipeline configurations."
+CONTRIBUTOR_SYSTEM_PROMPT = """You are an AI assistant creating a *high-level profile summary* for a GitHub contributor based on summaries of their work across different repositories.
+You will be given a list of summaries describing the contributor's work and focus within various repositories.
+Synthesize these points into a coherent paragraph (3-5 sentences) describing the contributor's *overall technical profile*, *recurring themes* in their work *across different projects*, and *inferred technical skills* or areas of deep expertise.
+Focus on identifying *consistent patterns*: Does the contributor specialize (e.g., backend, frontend, data science, infrastructure)? What is their apparent primary role or contribution style? What specific technologies, languages, or architectural domains do they frequently engage with? Are their contributions broad or focused?
+*Generalize and infer skills* from the repository-specific summaries to paint a picture of the *contributor as a whole*. Assess their likely strengths and areas of expertise based *only* on the provided work summaries.
+Example output: "This contributor consistently focuses on backend development across multiple projects, demonstrating expertise in Python and Django. They frequently tackle complex bug fixes in API layers and contribute significantly to database schema design and optimization. Their work suggests strong analytical skills and a deep understanding of server-side application architecture."
 If the provided list of summaries is empty or uninformative, output only the text "Cannot summarize".
 The summary should be plain text.
 """
 
 
-MAX_WORKERS = 5
+MAX_WORKERS = 8
 # Slightly longer timeout for potentially complex synthesis
 API_TIMEOUT = 120
 REPO_WORK_MAX_TOKENS = 250
