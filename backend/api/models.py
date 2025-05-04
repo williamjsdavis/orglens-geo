@@ -6,9 +6,9 @@ from django.db import models
 class Repository(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
+    avatar_url = models.URLField()
     url = models.URLField()
     summary = models.TextField()
-    language = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -52,7 +52,8 @@ class RepositoryWork(models.Model):
 class Contributor(models.Model):
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=255, unique=True)
-    email = models.EmailField()
+    url = models.URLField()
+    avatar_url = models.URLField()
     works = models.ManyToManyField(RepositoryWork, blank=True)
     summary = models.TextField()    
     created_at = models.DateTimeField(auto_now_add=True)

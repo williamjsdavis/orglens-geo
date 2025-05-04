@@ -5,10 +5,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from openai import OpenAI, APIError # Make sure to import OpenAI and potential errors
 from django.conf import settings
+from .models import *
+from .serializers import DataSerializer
 
-# Initialize OpenAI client (using the key from settings)
+
 try:
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = OpenAI(api_key=settings.LLAMA_API_KEY)
 except Exception as e:
     print(f"Error initializing OpenAI client: {e}")
     client = None # Set client to None if initialization fails
@@ -16,11 +18,12 @@ except Exception as e:
 
 # --- Simple Test View ---
 @api_view(['GET'])
-def hello_world(request):
+def get_data(request):
     """
-    A simple endpoint to test if the backend is running and reachable.
+    A simple endpoint to return the data.
     """
-    return Response({"message": "Hello from Django!"})
+    data = DataSerializer()
+    return Response(data.data)
 
 
 # --- LLM Streaming View ---
