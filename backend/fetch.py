@@ -16,15 +16,11 @@ GITHUB_API_VERSION = "2022-11-28"
 API_BASE_URL = "https://api.github.com"
 COMMIT_MESSAGE_MAX_LEN = 100
 
-# --- !! NEW: Commit Detail Limit !! ---
 # Set the maximum number of commit *detail* API calls per repository.
-# Useful for testing or avoiding excessive rate limit usage.
-# Set to None to fetch details for all commits found in the initial list.
-# Set to e.g., 3 to only fetch details for the first 3 commits per repo.
-MAX_COMMITS_TO_DETAIL_PER_REPO = 3 # <-- SET YOUR LIMIT HERE FOR TESTING
+MAX_COMMITS_TO_DETAIL_PER_REPO = 3 # Set to None to fetch details for all
 
 # --- Helper Functions ---
-# (parse_github_url, make_github_request, fetch_paginated_data - include full code from previous version)
+# (parse_github_url, make_github_request, fetch_paginated_data - include full code)
 def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
     """Parses a GitHub repository URL to extract owner and repo name."""
     try:
@@ -97,7 +93,6 @@ def fetch_paginated_data(url: str, token: Optional[str], params: Optional[Dict] 
     if params is None: params = {}
     while current_url:
         request_params = params if page == 1 else None
-        # print(f"Fetching data from {current_url} (Page {page})...") # Less verbose logging
         response = make_github_request(current_url, token, request_params)
         if response is None: return None
         if response.status_code == 204: break
@@ -118,7 +113,6 @@ def fetch_paginated_data(url: str, token: Optional[str], params: Optional[Dict] 
         except Exception as e:
              print(f"Error processing page {page} from {current_url}: {e}")
              return None
-    # print(f"Successfully fetched {len(all_data)} items total from base URL {url}.") # Less verbose logging
     return all_data
 
 def fetch_contributors_from_repo(owner: str, repo: str, token: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
@@ -144,25 +138,23 @@ def fetch_repository_commits(owner: str, repo: str, token: Optional[str] = None)
 def fetch_commit_details(owner: str, repo: str, commit_sha: str, token: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Fetches detailed information for a single commit."""
     commit_url = f"{API_BASE_URL}/repos/{owner}/{repo}/commits/{commit_sha}"
-    # Logging moved to process_repositories to include limit info
     response = make_github_request(commit_url, token)
     if response and response.status_code == 200:
         try:
             details = response.json()
-            time.sleep(0.4) # Pace the detail requests
+            time.sleep(0.4)
             return details
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON for commit details {commit_sha}: {e}")
             return None
     else:
-        # Error logged in make_github_request
         return None
 
 # --- MODIFIED FUNCTION ---
 def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """
     Fetches contributors, their assigned closed issues, and detailed commit info
-    (up to a limit per repo) for multiple repositories. Merges the data.
+    (up to a limit per repo, excluding stats) for multiple repositories. Merges the data.
     Returns a dictionary of unique contributors keyed by username.
     """
     all_contributors_map: Dict[str, Dict[str, Any]] = {}
@@ -199,15 +191,16 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
                     if assignee and isinstance(assignee, dict) and 'login' in assignee:
                         assignee_username = assignee['login']
                         if assignee_username not in issues_assigned_to_user_in_repo: issues_assigned_to_user_in_repo[assignee_username] = []
-                        if not any(i['url'] == simplified_issue['url'] for i in issues_assigned_to_user_in_repo[assignee_username]): issues_assigned_to_user_in_repo[assignee_username].append(simplified_issue)
+                        if not any(i['url'] == simplified_issue['url'] for i in issues_assigned_to_user_in_repo[assignee_username]):
+                            issues_assigned_to_user_in_repo[assignee_username].append(simplified_issue)
                         if assignee_username not in all_contributors_map and assignee_username not in assignee_details_cache: assignee_details_cache[assignee_username] = {"id": assignee.get('id'), "url": assignee.get('html_url'), "avatar_url": assignee.get('avatar_url')}
         else: print(f"No closed issues found or fetch failed for {owner}/{repo}.")
 
-        # --- Step 3: Fetch and Process Commits (with Details Limit) ---
+        # --- Step 3: Fetch and Process Commits (with Details Limit, No Stats) ---
         repo_commits_list = fetch_repository_commits(owner, repo, token)
         commits_authored_by_user_in_repo: Dict[str, List[Dict]] = {}
         author_details_cache: Dict[str, Dict] = {}
-        commits_detailed_count = 0 # Counter for detail calls *per repository*
+        commits_detailed_count = 0
 
         if repo_commits_list:
             print(f"Fetched {len(repo_commits_list)} commit summaries. Processing details (limit per repo: {MAX_COMMITS_TO_DETAIL_PER_REPO})...")
@@ -219,7 +212,7 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
                 if not commit_author_info or not isinstance(commit_author_info, dict) or 'login' not in commit_author_info: continue
                 author_username = commit_author_info['login']
 
-                # --- Prepare Basic Commit Info ---
+                # Prepare Basic Commit Info
                 commit_message = commit_summary_data.get('commit', {}).get('message', 'No commit message')
                 commit_message_summary = commit_message.split('\n', 1)[0]
                 if len(commit_message_summary) > COMMIT_MESSAGE_MAX_LEN:
@@ -229,55 +222,48 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
                     "sha": commit_sha,
                     "url": commit_summary_data.get('html_url', ''),
                     "message": commit_message_summary,
-                    # Initialize detailed fields to None/default
-                    "stats": None,
+                    # Initialize detailed fields (NO stats)
                     "files_changed": [],
                     "comment_count": 0,
-                    "diff_patch": None # New field for code changes
+                    "diff_patch": None
                 }
                 if not simplified_commit["url"]: continue
 
-                # --- Check Limit and Fetch Details ---
+                # Check Limit and Fetch Details
                 should_fetch_details = (
                     MAX_COMMITS_TO_DETAIL_PER_REPO is None or
                     commits_detailed_count < MAX_COMMITS_TO_DETAIL_PER_REPO
                 )
-                detailed_commit_data = None # Reset for each commit
+                detailed_commit_data = None
                 if should_fetch_details:
                     limit_str = f"{MAX_COMMITS_TO_DETAIL_PER_REPO}" if MAX_COMMITS_TO_DETAIL_PER_REPO is not None else "unlimited"
                     print(f"  [{commits_detailed_count + 1}/{limit_str}] Fetching details for commit {commit_sha[:7]}...")
                     detailed_commit_data = fetch_commit_details(owner, repo, commit_sha, token)
-                    commits_detailed_count += 1 # Increment *only* if detail fetch was attempted
-                # else: # Optional: Log skipped commits
-                    # print(f"  Skipping detail fetch for commit {commit_sha[:7]} (limit reached).")
+                    commits_detailed_count += 1
 
-                # --- Populate with Detailed Info if available ---
+                # Populate with Detailed Info if available (NO stats)
                 if detailed_commit_data:
-                    stats = detailed_commit_data.get('stats')
+                    # stats = detailed_commit_data.get('stats') # <-- REMOVED
                     files = detailed_commit_data.get('files', [])
                     comment_count = detailed_commit_data.get('commit', {}).get('comment_count', 0)
 
-                    simplified_commit["stats"] = stats
+                    # simplified_commit["stats"] = stats # <-- REMOVED
                     simplified_commit["comment_count"] = comment_count
                     simplified_commit["files_changed"] = [
                         {"filename": f.get('filename'), "status": f.get('status')}
                         for f in files if f.get('filename')
                     ]
 
-                    # --- Extract Patch/Diff ---
+                    # Extract Patch/Diff
                     combined_patch = ""
                     for f in files:
-                        # Check if 'patch' key exists and has content
                         if 'patch' in f and isinstance(f['patch'], str) and f['patch']:
                             combined_patch += f"--- File: {f.get('filename', 'Unknown')} ---\n"
                             combined_patch += f['patch']
-                            combined_patch += "\n\n" # Separator between file patches
-                    # Add the combined patch string if any patches were found
+                            combined_patch += "\n\n"
                     simplified_commit["diff_patch"] = combined_patch.strip() if combined_patch else None
-                # If detailed_commit_data is None (fetch failed or limit reached),
-                # the simplified_commit retains its basic info and None/default details.
 
-                # Add commit (basic or detailed) to the user's list for this repo
+                # Add commit (basic or detailed) to the user's list
                 if author_username not in commits_authored_by_user_in_repo:
                     commits_authored_by_user_in_repo[author_username] = []
                 if not any(c['sha'] == simplified_commit['sha'] for c in commits_authored_by_user_in_repo[author_username]):
@@ -316,7 +302,7 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
 # --- Main Execution ---
 if __name__ == "__main__":
     repository_urls = [
-        "https://github.com/MrCogito/setra_hackaton",
+        "https://github.com/meta-llama/llama-stack-apps",
         "https://github.com/meta-llama/llama-prompt-ops"
     ]
 
@@ -327,13 +313,11 @@ if __name__ == "__main__":
     else:
         print("Successfully loaded GITHUB_TOKEN from environment.")
 
-    # Explain the commit detail limit being used
     if MAX_COMMITS_TO_DETAIL_PER_REPO is not None:
-        print(f"--- NOTE: Will attempt to fetch details for a maximum of {MAX_COMMITS_TO_DETAIL_PER_REPO} commits per repository ---")
+        print(f"--- NOTE: Will attempt to fetch details (excluding stats) for a maximum of {MAX_COMMITS_TO_DETAIL_PER_REPO} commits per repository ---")
         print("--- Commits beyond this limit will only have basic info (sha, url, message) ---")
     else:
-        print("--- NOTE: Attempting to fetch details for ALL found commits per repository (can be very slow and API intensive) ---")
-
+        print("--- NOTE: Attempting to fetch details (excluding stats) for ALL found commits per repository (can be very slow and API intensive) ---")
 
     start_time = time.time()
     contributors_map = process_repositories(repository_urls, GITHUB_TOKEN)
@@ -349,19 +333,11 @@ if __name__ == "__main__":
 
     print("\n--- Final Combined Contributor Data (JSON) ---")
 
-    # Save to a file is highly recommended due to potential size
-    output_filename = "github_contributors_detailed_commits_limited.json"
+    output_filename = "github_contributors_detailed_commits_no_stats.json"
     try:
         with open(output_filename, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
         print(f"\nSuccessfully saved data to {output_filename}")
-        # Optionally print a small part if needed for quick verification
-        # print("\n--- Sample Output (First Contributor) ---")
-        # if final_contributor_list:
-        #     print(json.dumps(final_contributor_list[0], indent=2, ensure_ascii=False))
-        # else:
-        #     print("No contributors found.")
-
     except IOError as e:
         print(f"\nError saving data to file: {e}")
     except TypeError as e:
