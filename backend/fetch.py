@@ -15,12 +15,11 @@ GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 GITHUB_API_VERSION = "2022-11-28"
 API_BASE_URL = "https://api.github.com"
 COMMIT_MESSAGE_MAX_LEN = 100
+MAX_COMMITS_TO_DETAIL_PER_REPO = 3
+MAX_ISSUES_TO_DETAIL_PER_REPO = 20
 
-# Set the maximum number of commit *detail* API calls per repository.
-MAX_COMMITS_TO_DETAIL_PER_REPO = 3 # Set to None to fetch details for all
-
-# --- Helper Functions ---
-# (Include the full code for parse_github_url, make_github_request, fetch_paginated_data here)
+# --- Helper Functions (Keep the existing parse_github_url, make_github_request, fetch_paginated_data) ---
+# (Include the full code for parse_github_url, make_github_request, fetch_paginated_data here from the previous version)
 def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
     """Parses a GitHub repository URL to extract owner and repo name."""
     try:
@@ -41,10 +40,15 @@ def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
         print(f"Error parsing URL '{url}': {e}")
         return None
 
-def make_github_request(url: str, token: Optional[str], params: Optional[Dict] = None) -> Optional[requests.Response]:
+def make_github_request(
+    url: str,
+    token: Optional[str],
+    params: Optional[Dict] = None,
+    accept_header: str = "application/vnd.github+json" # Default media type
+) -> Optional[requests.Response]:
     """Makes a request to the GitHub API with headers and error handling."""
     headers = {
-        "Accept": "application/vnd.github+json",
+        "Accept": accept_header, # Use the provided accept header
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
     }
     if token: headers["Authorization"] = f"Bearer {token}"
@@ -68,7 +72,9 @@ def make_github_request(url: str, token: Optional[str], params: Optional[Dict] =
         except requests.exceptions.HTTPError as e:
             if response is not None:
                 status_code = response.status_code
-                if status_code == 404: print(f"Error: Resource not found (404) for URL: {url}")
+                if status_code == 301: print(f"Info: Resource moved permanently (301) for URL: {url}. Check if repo/issue was transferred."); return None
+                elif status_code == 404: print(f"Error: Resource not found (404) for URL: {url}. Check permissions or if it exists."); return None
+                elif status_code == 410: print(f"Info: Resource gone (410) for URL: {url}. Likely deleted."); return None
                 elif status_code == 403: print(f"Error: Forbidden (403) for URL: {url}. Check token permissions or rate limits.")
                 elif status_code == 204: print(f"Info: No content (204) for URL: {url}"); return response
                 elif status_code == 409: print(f"Info: Conflict (409) for URL: {url}. Repo might be empty."); return None
@@ -90,83 +96,82 @@ def make_github_request(url: str, token: Optional[str], params: Optional[Dict] =
         except Exception as e:
             print(f"An unexpected error occurred during request to {url}: {e}")
             return None
-    return None # Should be unreachable if retries exhausted, but added for safety
+    return None
 
 def fetch_paginated_data(url: str, token: Optional[str], params: Optional[Dict] = None) -> Optional[List[Dict[str, Any]]]:
     """Fetches paginated data from a GitHub API endpoint."""
     all_data = []
     page = 1
     current_url = url
-    # Apply initial params only to the first request
     request_params = params.copy() if params else {}
     request_params['page'] = page
 
     while current_url:
-        print(f"  Fetching page {page} from {current_url.split('?')[0]}...") # Log base URL
+        print(f"  Fetching page {page} from {current_url.split('?')[0]}...")
         response = make_github_request(current_url, token, request_params)
-
-        # Reset params for subsequent requests using 'next' link URL
         request_params = None
 
-        if response is None: return None # Request failed
-        if response.status_code == 204: break # No content
+        if response is None: return None
+        if response.status_code == 204: break
 
         try:
-            # Check for empty content before attempting JSON decode
             if not response.content:
                 print(f"  Warning: Received empty response body from {current_url}.")
                 break
-
             page_data = response.json()
-
-            # Handle cases where the response isn't a list (e.g., error object)
             if not isinstance(page_data, list):
                  print(f"  Warning: Expected a list but received type {type(page_data)} from {current_url}. Content: {response.text[:100]}...")
-                 # If it looks like an error message, stop pagination
                  if isinstance(page_data, dict) and ('message' in page_data or 'errors' in page_data):
                       print(f"  Error message detected, stopping pagination.")
-                      return None if not all_data else all_data # Return what we have if some pages worked
-                 break # Otherwise, just stop processing this page
-
-            if not page_data: break # Empty list means no more data
-
+                      return None if not all_data else all_data
+                 break
+            if not page_data: break
             all_data.extend(page_data)
-
-            # Process 'next' link
             if 'next' in response.links:
                  current_url = response.links['next']['url']
                  page += 1
-                 # Small delay between pages to be polite to the API
-                 time.sleep(0.3) # Increased slightly
+                 time.sleep(0.3)
             else:
-                 current_url = None # No more pages
-
+                 current_url = None
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON from {current_url or url}: {e}. Response text: {response.text[:200]}")
-            # Don't necessarily fail everything if one page fails to decode, return what we got
             return all_data if all_data else None
         except Exception as e:
              print(f"Error processing page {page} from {current_url or url}: {e}")
-             # Return what we have so far
              return all_data if all_data else None
-
     print(f"  Finished fetching paginated data, total items: {len(all_data)}")
     return all_data
 
-
-# --- Functions to Fetch Data ---
+# --- Functions to Fetch Data (Keep the existing fetch_contributors_from_repo, fetch_repository_issues_list, fetch_issue_details, fetch_repository_commits, fetch_commit_details) ---
+# (Include the full code for these functions here from the previous version)
 def fetch_contributors_from_repo(owner: str, repo: str, token: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
     """Fetches the list of contributors for a specific repository."""
     contributors_url = f"{API_BASE_URL}/repos/{owner}/{repo}/contributors"
     print(f"Fetching contributors for {owner}/{repo}...")
-    return fetch_paginated_data(contributors_url, token, {"per_page": 100, "anon": "false"}) # Explicitly exclude anonymous
+    return fetch_paginated_data(contributors_url, token, {"per_page": 100, "anon": "false"})
 
-def fetch_repository_issues(owner: str, repo: str, token: Optional[str] = None, state: str = "closed") -> Optional[List[Dict[str, Any]]]:
-    """Fetches issues for a specific repository, filtering by state."""
+def fetch_repository_issues_list(owner: str, repo: str, token: Optional[str] = None, state: str = "closed") -> Optional[List[Dict[str, Any]]]:
+    """Fetches a list of issue summaries for a specific repository, filtering by state."""
     issues_url = f"{API_BASE_URL}/repos/{owner}/{repo}/issues"
     params = {"state": state, "per_page": 100}
-    print(f"Fetching '{state}' issues for {owner}/{repo}...")
+    print(f"Fetching '{state}' issue summaries for {owner}/{repo}...")
     return fetch_paginated_data(issues_url, token, params)
+
+def fetch_issue_details(owner: str, repo: str, issue_number: int, token: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Fetches detailed information for a single issue, requesting raw body."""
+    issue_url = f"{API_BASE_URL}/repos/{owner}/{repo}/issues/{issue_number}"
+    accept_header = "application/vnd.github.raw+json"
+    response = make_github_request(issue_url, token, accept_header=accept_header)
+    if response and response.status_code == 200:
+        try:
+            details = response.json()
+            time.sleep(0.5)
+            return details
+        except json.JSONDecodeError as e:
+            print(f"    Error decoding JSON for issue details #{issue_number}: {e}")
+            return None
+    else:
+        return None
 
 def fetch_repository_commits(owner: str, repo: str, token: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
     """Fetches commit summaries for a specific repository."""
@@ -178,26 +183,25 @@ def fetch_repository_commits(owner: str, repo: str, token: Optional[str] = None)
 def fetch_commit_details(owner: str, repo: str, commit_sha: str, token: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Fetches detailed information for a single commit."""
     commit_url = f"{API_BASE_URL}/repos/{owner}/{repo}/commits/{commit_sha}"
-    # print(f"    Fetching details for commit {commit_sha[:7]}...") # Moved logging up
     response = make_github_request(commit_url, token)
     if response and response.status_code == 200:
         try:
             details = response.json()
-            time.sleep(0.5) # Slightly increased delay after successful detail fetch
+            time.sleep(0.5)
             return details
         except json.JSONDecodeError as e:
             print(f"    Error decoding JSON for commit details {commit_sha}: {e}")
             return None
     else:
-        # Error message already printed by make_github_request
         return None
+
 
 # --- MODIFIED FUNCTION ---
 def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """
-    Fetches contributors, their assigned closed issues, and detailed commit info
-    (up to a limit per repo, excluding stats) for multiple repositories. Merges the data.
-    Returns a dictionary of unique contributors keyed by username.
+    Fetches contributors, their assigned closed issues (with specific details up to a limit),
+    and detailed commit info (up to a limit per repo, excluding stats) for multiple repositories.
+    Merges the data. Returns a dictionary of unique contributors keyed by username.
     """
     all_contributors_map: Dict[str, Dict[str, Any]] = {}
 
@@ -208,161 +212,185 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
         owner, repo = parsed_info
         canonical_repo_url = f"https://github.com/{owner}/{repo}"
 
-        # Step 1: Fetch Contributors
+        # Step 1: Fetch Contributors (remains the same)
         repo_contributors = fetch_contributors_from_repo(owner, repo, token)
-        if repo_contributors is None: repo_contributors = [] # Treat fetch failure as empty list
+        if repo_contributors is None: repo_contributors = []
         for contributor_data in repo_contributors:
-            # Ensure required keys are present and it's a User (not Bot)
             required_keys = ['login', 'id', 'html_url', 'avatar_url']
             if not all(k in contributor_data for k in required_keys) or contributor_data.get('type') != 'User': continue
             username = contributor_data['login']
-            if not username: continue # Skip if login is somehow empty
+            if not username: continue
 
-            # Initialize contributor in the main map if not present
             if username not in all_contributors_map:
                 all_contributors_map[username] = {
                     "id": contributor_data['id'],
                     "username": username,
                     "url": contributor_data['html_url'],
                     "avatar_url": contributor_data['avatar_url'],
-                    "works": [] # Initialize works list
+                    "works": []
                  }
-            # Ensure 'works' list exists even if user was added previously without it
             all_contributors_map[username].setdefault('works', [])
 
-        # Step 2: Fetch and Process Closed Issues
-        repo_closed_issues = fetch_repository_issues(owner, repo, token, state="closed")
+        # --- Step 2: Fetch and Process Closed Issues (with Specific Details) ---
+        repo_closed_issues_list = fetch_repository_issues_list(owner, repo, token, state="closed")
         issues_assigned_to_user_in_repo: Dict[str, List[Dict]] = {}
-        assignee_details_cache: Dict[str, Dict] = {} # Cache details for users found only via issues
+        assignee_details_cache: Dict[str, Dict] = {}
+        issues_detailed_count = 0
 
-        if repo_closed_issues:
-            print(f"Processing {len(repo_closed_issues)} fetched closed issues...")
-            for issue_data in repo_closed_issues:
-                # Skip pull requests and issues not actually closed
-                if 'pull_request' in issue_data or issue_data.get('state') != 'closed': continue
+        if repo_closed_issues_list:
+            limit_str = f"{MAX_ISSUES_TO_DETAIL_PER_REPO}" if MAX_ISSUES_TO_DETAIL_PER_REPO is not None else "all"
+            print(f"Processing {len(repo_closed_issues_list)} fetched closed issue summaries. Fetching details (limit per repo: {limit_str})...")
 
-                # Handle both 'assignees' list and legacy 'assignee' field
-                assignees_list = issue_data.get('assignees', [])
-                if not assignees_list and issue_data.get('assignee'):
-                    assignees_list = [issue_data['assignee']]
+            for issue_summary_data in repo_closed_issues_list:
+                if 'pull_request' in issue_summary_data: continue
+                if issue_summary_data.get('state') != 'closed': continue
 
-                if not assignees_list: continue # Skip issue if no assignees
+                issue_number = issue_summary_data.get('number')
+                if not issue_number:
+                    print(f"  Warning: Skipping issue summary without a number: {issue_summary_data.get('url')}")
+                    continue
 
-                simplified_issue = {"url": issue_data.get('html_url'), "title": issue_data.get('title', 'No Title')}
-                if not simplified_issue["url"] or not simplified_issue["title"]: continue # Skip if essential info missing
+                should_fetch_details = (
+                    MAX_ISSUES_TO_DETAIL_PER_REPO is None or
+                    issues_detailed_count < MAX_ISSUES_TO_DETAIL_PER_REPO
+                )
 
-                for assignee in assignees_list:
-                    # Validate assignee data
-                    if assignee and isinstance(assignee, dict) and 'login' in assignee and assignee.get('type') == 'User':
-                        assignee_username = assignee['login']
-                        if not assignee_username: continue # Skip if login is empty
+                if not should_fetch_details:
+                     if issues_detailed_count == MAX_ISSUES_TO_DETAIL_PER_REPO:
+                          print(f"  Reached issue detail limit ({MAX_ISSUES_TO_DETAIL_PER_REPO}). Skipping detail fetch for remaining issues in {owner}/{repo}.")
+                          issues_detailed_count += 1
+                     continue
 
-                        # Add issue to this user's list for this repo
-                        if assignee_username not in issues_assigned_to_user_in_repo:
-                            issues_assigned_to_user_in_repo[assignee_username] = []
-                        # Avoid adding duplicate issue URLs
-                        if not any(i['url'] == simplified_issue['url'] for i in issues_assigned_to_user_in_repo[assignee_username]):
-                            issues_assigned_to_user_in_repo[assignee_username].append(simplified_issue)
+                print(f"  [{issues_detailed_count + 1}/{limit_str}] Fetching details for issue #{issue_number}...")
+                detailed_issue_data = fetch_issue_details(owner, repo, issue_number, token)
 
-                        # Cache assignee details if they are not already in the main map
-                        if assignee_username not in all_contributors_map and assignee_username not in assignee_details_cache:
-                            assignee_details_cache[assignee_username] = {
-                                "id": assignee.get('id'),
-                                "url": assignee.get('html_url'),
-                                "avatar_url": assignee.get('avatar_url')
-                            }
+                if detailed_issue_data:
+                    issues_detailed_count += 1
+
+                    # *** START MODIFICATION: Create simplified issue object ***
+                    simplified_issue_data = {
+                        "html_url": detailed_issue_data.get("html_url"),
+                        "number": detailed_issue_data.get("number"),
+                        "title": detailed_issue_data.get("title"),
+                        "body": detailed_issue_data.get("body"), # Raw markdown body
+                        "labels": detailed_issue_data.get("labels", []), # List of label objects
+                        "comments": detailed_issue_data.get("comments", 0), # Integer count of comments
+                        "state_reason": detailed_issue_data.get("state_reason") # e.g., "completed", "not_planned"
+                    }
+                    # *** END MODIFICATION ***
+
+                    # Use the simplified object from now on
+                    issue_data_to_store = simplified_issue_data
+                    issue_id_for_dedup = detailed_issue_data.get("id") # Still use original ID for de-duplication check
+
+                    assignees_list = detailed_issue_data.get('assignees', [])
+                    if not assignees_list and detailed_issue_data.get('assignee'):
+                        assignees_list = [detailed_issue_data['assignee']]
+
+                    if not assignees_list:
+                        continue
+
+                    for assignee in assignees_list:
+                        if assignee and isinstance(assignee, dict) and 'login' in assignee and assignee.get('type') == 'User':
+                            assignee_username = assignee['login']
+                            if not assignee_username: continue
+
+                            if assignee_username not in issues_assigned_to_user_in_repo:
+                                issues_assigned_to_user_in_repo[assignee_username] = []
+
+                            # Avoid adding duplicate issues (check by original ID)
+                            if not any(i.get('original_id_temp') == issue_id_for_dedup for i in issues_assigned_to_user_in_repo[assignee_username]):
+                                # Temporarily add original id for check, then remove if desired, or keep simplified structure
+                                # We'll store the simplified structure directly
+                                issues_assigned_to_user_in_repo[assignee_username].append(issue_data_to_store)
+
+
+                            if assignee_username not in all_contributors_map and assignee_username not in assignee_details_cache:
+                                assignee_details_cache[assignee_username] = {
+                                    "id": assignee.get('id'),
+                                    "url": assignee.get('html_url'),
+                                    "avatar_url": assignee.get('avatar_url')
+                                }
+                else:
+                    print(f"    Failed to fetch details for issue #{issue_number} or it's not accessible/found.")
         else:
-            print(f"No closed issues found or fetch failed for {owner}/{repo}.")
+            print(f"No closed issue summaries found or fetch failed for {owner}/{repo}.")
 
-        # --- Step 3: Fetch and Process Commits (with Details Limit, No Stats) ---
+
+        # --- Step 3: Fetch and Process Commits (remains the same) ---
         repo_commits_list = fetch_repository_commits(owner, repo, token)
         commits_authored_by_user_in_repo: Dict[str, List[Dict]] = {}
         author_details_cache: Dict[str, Dict] = {} # Cache details for users found only via commits
         commits_detailed_count = 0
 
         if repo_commits_list:
-            print(f"Processing {len(repo_commits_list)} fetched commit summaries. Fetching details (limit per repo: {MAX_COMMITS_TO_DETAIL_PER_REPO})...")
+            limit_str_commits = f"{MAX_COMMITS_TO_DETAIL_PER_REPO}" if MAX_COMMITS_TO_DETAIL_PER_REPO is not None else "all"
+            print(f"Processing {len(repo_commits_list)} fetched commit summaries. Fetching details (limit per repo: {limit_str_commits})...")
             for commit_summary_data in repo_commits_list:
                 commit_sha = commit_summary_data.get('sha')
                 if not commit_sha: continue
 
-                # Use 'author' field for GitHub user linking (committer might be different)
-                # Ensure author exists, is a dict, has login, and is a User
                 commit_author_info = commit_summary_data.get('author')
                 if not commit_author_info or not isinstance(commit_author_info, dict) \
                    or 'login' not in commit_author_info or commit_author_info.get('type') != 'User':
-                   # Fallback or log if needed, e.g., using commit.author.name/email if no GitHub user
-                   # print(f"  Skipping commit {commit_sha[:7]} due to missing or invalid author info.")
-                   continue # Skip commits without a valid GitHub author
+                   continue
 
                 author_username = commit_author_info['login']
-                if not author_username: continue # Skip if login is empty
+                if not author_username: continue
 
-                # Prepare Basic Commit Info
                 commit_message = commit_summary_data.get('commit', {}).get('message', 'No commit message')
-                commit_message_summary = commit_message.split('\n', 1)[0] # First line only
+                commit_message_summary = commit_message.split('\n', 1)[0]
                 if len(commit_message_summary) > COMMIT_MESSAGE_MAX_LEN:
-                     commit_message_summary = commit_message_summary[:COMMIT_MESSAGE_MAX_LEN - 3] + '...' # Adjust slicing
+                     commit_message_summary = commit_message_summary[:COMMIT_MESSAGE_MAX_LEN - 3] + '...'
 
                 simplified_commit = {
                     "sha": commit_sha,
                     "url": commit_summary_data.get('html_url'),
                     "message": commit_message_summary,
-                    # Initialize detailed fields (NO stats)
-                    "files_changed": None, # Use None to indicate details not fetched/available
+                    "files_changed": None,
                     "comment_count": None,
                     "diff_patch": None
                 }
-                if not simplified_commit["url"]: continue # Skip if essential info missing
+                if not simplified_commit["url"]: continue
 
-                # Check Limit and Fetch Details
                 should_fetch_details = (
                     MAX_COMMITS_TO_DETAIL_PER_REPO is None or
                     commits_detailed_count < MAX_COMMITS_TO_DETAIL_PER_REPO
                 )
                 detailed_commit_data = None
                 if should_fetch_details:
-                    limit_str = f"{MAX_COMMITS_TO_DETAIL_PER_REPO}" if MAX_COMMITS_TO_DETAIL_PER_REPO is not None else "all"
-                    print(f"  [{commits_detailed_count + 1}/{limit_str}] Fetching details for commit {commit_sha[:7]} by {author_username}...")
+                    print(f"  [{commits_detailed_count + 1}/{limit_str_commits}] Fetching details for commit {commit_sha[:7]} by {author_username}...")
                     detailed_commit_data = fetch_commit_details(owner, repo, commit_sha, token)
-                    if detailed_commit_data: # Only increment if fetch was successful
+                    if detailed_commit_data:
                          commits_detailed_count += 1
                     else:
                          print(f"    Failed to fetch details for commit {commit_sha[:7]}.")
 
-
-                # Populate with Detailed Info if available (NO stats)
                 if detailed_commit_data:
                     files = detailed_commit_data.get('files', [])
-                    # Ensure commit object and comment_count exist before accessing
                     commit_details_commit_obj = detailed_commit_data.get('commit', {})
                     comment_count = commit_details_commit_obj.get('comment_count', 0) if commit_details_commit_obj else 0
 
                     simplified_commit["comment_count"] = comment_count
                     simplified_commit["files_changed"] = [
                         {"filename": f.get('filename'), "status": f.get('status')}
-                        for f in files if f.get('filename') # Ensure filename exists
-                    ] if files else [] # Handle case where files list might be missing or empty
+                        for f in files if f.get('filename')
+                    ] if files else []
 
-                    # Extract Patch/Diff if files exist
                     combined_patch = ""
                     if files:
                          for f in files:
-                            # Check if 'patch' exists, is a string, and is not empty
                              if f and 'patch' in f and isinstance(f.get('patch'), str) and f['patch']:
                                  combined_patch += f"--- File: {f.get('filename', 'Unknown')} ---\n"
                                  combined_patch += f['patch']
                                  combined_patch += "\n\n"
-                    simplified_commit["diff_patch"] = combined_patch.strip() if combined_patch else None # Use None if no patch data
+                    simplified_commit["diff_patch"] = combined_patch.strip() if combined_patch else None
 
-                # Add commit (basic or detailed) to the user's list for this repo
                 if author_username not in commits_authored_by_user_in_repo:
                     commits_authored_by_user_in_repo[author_username] = []
-                 # Avoid adding duplicate commit SHAs
                 if not any(c['sha'] == simplified_commit['sha'] for c in commits_authored_by_user_in_repo[author_username]):
                      commits_authored_by_user_in_repo[author_username].append(simplified_commit)
 
-                # Cache author details if they are not already in the main map
                 if author_username not in all_contributors_map and author_username not in author_details_cache:
                      author_details_cache[author_username] = {
                          "id": commit_author_info.get('id'),
@@ -373,7 +401,6 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
              print(f"No commit summaries found or fetch failed for {owner}/{repo}.")
 
         # --- Step 4: Integrate Issues and Commits into Contributor Works ---
-        # Identify all users involved in this repo (contributors + assignees + authors)
         involved_users_in_repo = set()
         if repo_contributors: involved_users_in_repo.update(c['login'] for c in repo_contributors if c.get('login'))
         involved_users_in_repo.update(issues_assigned_to_user_in_repo.keys())
@@ -382,57 +409,46 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
         print(f"Integrating activities for {len(involved_users_in_repo)} users in {owner}/{repo}...")
 
         for username in involved_users_in_repo:
-            # Ensure user exists in the main map, adding them if necessary using cached details
             if username not in all_contributors_map:
                 details = assignee_details_cache.get(username) or author_details_cache.get(username)
-                if details and (details.get('id') or details.get('url')): # Check if we have some usable details
+                if details and (details.get('id') or details.get('url')):
                     print(f"Adding contributor '{username}' based on activity in {owner}/{repo}.")
                     all_contributors_map[username] = {
                         "id": details.get('id'),
                         "username": username,
                         "url": details.get('url'),
                         "avatar_url": details.get('avatar_url'),
-                        "works": [] # Initialize works
+                        "works": []
                     }
                 else:
                     print(f"Warning: Skipping user '{username}' found via activity in {owner}/{repo} as details couldn't be retrieved or cached.")
-                    continue # Skip this user if we have no details
+                    continue
 
-            # Ensure 'works' list exists for the user
             contributor_works = all_contributors_map[username].setdefault('works', [])
 
-            # Get the specific contributions for THIS user in THIS repo
-            user_issues_in_repo = issues_assigned_to_user_in_repo.get(username, [])
+            # Get the simplified issues and commits for THIS user in THIS repo
+            user_issues_in_repo = issues_assigned_to_user_in_repo.get(username, []) # This now contains simplified issue objects
             user_commits_in_repo = commits_authored_by_user_in_repo.get(username, [])
 
-            # *** KEY CHANGE: Only add/update repo entry if there are actual contributions ***
             if user_issues_in_repo or user_commits_in_repo:
-                # Find if an entry for this repo already exists for the user
                 repo_work_entry = next((work for work in contributor_works if work.get("repository_url") == canonical_repo_url), None)
 
                 if repo_work_entry is None:
-                    # Create a NEW entry because it doesn't exist and there's activity
                     repo_work_entry = {
                         "repository_url": canonical_repo_url,
-                        "issues": user_issues_in_repo,
+                        "issues": user_issues_in_repo, # Store the list of simplified issue objects
                         "commits": user_commits_in_repo
                     }
                     contributor_works.append(repo_work_entry)
-                    # print(f"  Added new repo entry for {username} in {owner}/{repo}")
                 else:
-                    # Update existing entry for this repo (less likely needed with current flow, but safe)
-                    # Overwrite lists with the latest fetched data for this repo pass
-                    repo_work_entry["issues"] = user_issues_in_repo
+                    # Update existing entry - overwrite with potentially newer data from this run
+                    repo_work_entry["issues"] = user_issues_in_repo # Update with simplified issues
                     repo_work_entry["commits"] = user_commits_in_repo
-                    # print(f"  Updated existing repo entry for {username} in {owner}/{repo}")
-            # else:
-                # If both lists are empty, do nothing - no entry is added or modified for this repo.
-                # print(f"  Skipping empty repo entry for {username} in {owner}/{repo}")
-
 
     return all_contributors_map
 
-# --- Main Execution ---
+
+# --- Main Execution (Keep the existing main block) ---
 if __name__ == "__main__":
     repository_urls = [
         "https://github.com/meta-llama/llama-stack-apps",
@@ -442,46 +458,47 @@ if __name__ == "__main__":
     if not GITHUB_TOKEN:
         print("Warning: GITHUB_TOKEN environment variable not found.")
         print("API requests will be unauthenticated and subject to much lower rate limits.")
-        print("Fetching commit details without a token is highly likely to fail or be severely limited.")
+        print("Fetching commit/issue details without a token is highly likely to fail or be severely limited.")
     else:
-        # Simple check if token seems valid (starts with ghp_ or ghu_)
-        if GITHUB_TOKEN.startswith("ghp_") or GITHUB_TOKEN.startswith("ghu_"):
+        if GITHUB_TOKEN.startswith("ghp_") or GITHUB_TOKEN.startswith("ghu_") or GITHUB_TOKEN.startswith("github_pat"):
              print("Successfully loaded GITHUB_TOKEN from environment.")
         else:
-             print("Warning: GITHUB_TOKEN loaded, but doesn't look like a standard Personal Access Token.")
+             print("Warning: GITHUB_TOKEN loaded, but doesn't look like a standard Personal Access Token format.")
 
 
     if MAX_COMMITS_TO_DETAIL_PER_REPO is not None:
-        print(f"--- NOTE: Will attempt to fetch details (excluding stats) for a maximum of {MAX_COMMITS_TO_DETAIL_PER_REPO} commits per repository ---")
-        print("--- Commits beyond this limit will only have basic info (sha, url, message) ---")
+        print(f"--- NOTE: Will attempt to fetch details for a maximum of {MAX_COMMITS_TO_DETAIL_PER_REPO} commits per repository ---")
     else:
-        print("--- NOTE: Attempting to fetch details (excluding stats) for ALL found commits per repository (can be very slow and API intensive) ---")
+        print("--- NOTE: Attempting to fetch details for ALL found commits per repository ---")
+
+    if MAX_ISSUES_TO_DETAIL_PER_REPO is not None:
+        print(f"--- NOTE: Will attempt to fetch details (simplified) for a maximum of {MAX_ISSUES_TO_DETAIL_PER_REPO} closed issues per repository ---")
+    else:
+        print("--- NOTE: Attempting to fetch details (simplified) for ALL found closed issues per repository ---")
+
 
     start_time = time.time()
     contributors_map = process_repositories(repository_urls, GITHUB_TOKEN)
     end_time = time.time()
 
-    # Convert the map to a list for the final output
     final_contributor_list = list(contributors_map.values())
-
-    # Optional: Sort contributors by username
     final_contributor_list.sort(key=lambda x: x.get('username', '').lower())
 
     output_data = {
-        "contributors": final_contributor_list
-        # Maybe add some metadata like processing time, repos processed?
-        # "metadata": {
-        #    "processed_repos": repository_urls,
-        #    "processing_time_seconds": round(end_time - start_time, 2),
-        #    "commit_detail_limit_per_repo": MAX_COMMITS_TO_DETAIL_PER_REPO
-        # }
+        "contributors": final_contributor_list,
+        "metadata": {
+           "processed_repos": repository_urls,
+           "processing_time_seconds": round(end_time - start_time, 2),
+           "commit_detail_limit_per_repo": MAX_COMMITS_TO_DETAIL_PER_REPO,
+           "issue_detail_limit_per_repo": MAX_ISSUES_TO_DETAIL_PER_REPO
+        }
     }
 
     print(f"\n--- Processing completed in {end_time - start_time:.2f} seconds ---")
     print(f"--- Found data for {len(final_contributor_list)} unique contributors across processed repositories ---")
 
 
-    output_filename = "github_contributors_detailed_commits_no_stats_v2.json"
+    output_filename = "github_contributors_simplified_issues_commits_v4.json" # Changed filename
     try:
         print(f"\nAttempting to save data to {output_filename}...")
         with open(output_filename, 'w', encoding='utf-8') as f:
@@ -491,12 +508,7 @@ if __name__ == "__main__":
         print(f"\nError saving data to file '{output_filename}': {e}")
     except TypeError as e:
          print(f"\nError serializing data to JSON: {e}")
-         # Optionally print a snippet of the data causing issues
-         # print("Problematic data snippet (first contributor):")
-         # print(json.dumps(output_data['contributors'][0] if output_data['contributors'] else {}, indent=2, ensure_ascii=False))
 
-    # Optional: Print summary of users with no works (might indicate issues or just inactive users)
     users_with_no_works = [c['username'] for c in final_contributor_list if not c.get('works')]
     if users_with_no_works:
         print(f"\nNote: {len(users_with_no_works)} contributors were identified but had no associated closed issues or commits recorded in the processed repositories:")
-        # print(f"  {', '.join(users_with_no_works[:10])}{'...' if len(users_with_no_works) > 10 else ''}")
