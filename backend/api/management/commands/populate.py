@@ -110,8 +110,7 @@ class Command(BaseCommand):
             )
             contributor_cache[username] = contributor
             processed_contributors += 1
-            # Optional: reduce verbosity
-            if created and processed_contributors % 50 == 0: # Log progress less frequently
+            if created and processed_contributors % 50 == 0:
                  self.stdout.write(f"Processed {processed_contributors}/{total_contributors} contributors...")
 
 
@@ -162,16 +161,24 @@ class Command(BaseCommand):
                 # --- 5. Create or Update Issues for this RepositoryWork ---
                 issues_data = work_data.get('issues', [])
                 for issue_data in issues_data:
-                    issue_url = issue_data.get('url')
+                    # --- MODIFICATION START ---
+                    # Get the URL from 'html_url' field
+                    issue_url = issue_data.get('html_url')
                     if not issue_url:
+                        self.stdout.write(self.style.WARNING(f"Skipping issue for repo {repo_url} due to missing 'html_url'."))
                         continue
 
-                    # --- MODIFICATION START ---
+                    # Prepare the raw_data field by excluding the 'html_url'
+                    # Make a copy to avoid modifying the original dict during iteration
+                    raw_data_for_db = issue_data.copy()
+                    if 'html_url' in raw_data_for_db:
+                        del raw_data_for_db['html_url'] # Remove the URL key
+
                     issue, issue_created = Issue.objects.update_or_create(
                         work=repo_work,
-                        url=issue_url,
+                        url=issue_url, # Use the extracted URL
                         defaults={
-                            'raw_data': issue_data, # Keep original issue data snippet
+                            'raw_data': raw_data_for_db, # Store the rest of the data
                             'summary': '', # Set summary to empty as requested
                         }
                     )
@@ -187,6 +194,7 @@ class Command(BaseCommand):
                     if not commit_url:
                         continue
 
+                    # Prepare raw_data for commit (keeping previous logic)
                     commit_raw_data_subset = {
                         'message': commit_data.get('message'),
                         'files_changed': commit_data.get('files_changed'),
