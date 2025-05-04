@@ -1,4 +1,4 @@
-{
+export const mockData = {
   "repositories": [
     {
       "id": 1,

@@ -9,6 +9,7 @@ class Repository(models.Model):
     avatar_url = models.URLField()
     url = models.URLField()
     summary = models.TextField()
+    raw_data = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
