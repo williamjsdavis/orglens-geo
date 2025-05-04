@@ -14,9 +14,9 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 GITHUB_API_VERSION = "2022-11-28"
 API_BASE_URL = "https://api.github.com"
-COMMIT_MESSAGE_MAX_LEN = 100
-MAX_COMMITS_TO_DETAIL_PER_REPO = 3
-MAX_ISSUES_TO_DETAIL_PER_REPO = 20
+COMMIT_MESSAGE_MAX_LEN = 200
+MAX_COMMITS_TO_DETAIL_PER_REPO = 500
+MAX_ISSUES_TO_DETAIL_PER_REPO = 500
 
 # --- Helper Functions (Keep the existing parse_github_url, make_github_request, fetch_paginated_data) ---
 # (Include the full code for parse_github_url, make_github_request, fetch_paginated_data here from the previous version)
@@ -451,8 +451,8 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
 # --- Main Execution (Keep the existing main block) ---
 if __name__ == "__main__":
     repository_urls = [
-        "https://github.com/meta-llama/llama-stack-apps",
-        "https://github.com/meta-llama/llama-prompt-ops"
+        "https://github.com/meta-llama/llama-models",
+        "https://github.com/meta-llama/codellama"
     ]
 
     if not GITHUB_TOKEN:
