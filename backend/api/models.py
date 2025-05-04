@@ -39,7 +39,7 @@ class RepositoryWork(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.repository.name}"
+        return f"{self.contributor.username} - {self.repository.name}"
     
 class Issue(models.Model):
     id = models.AutoField(primary_key=True)
