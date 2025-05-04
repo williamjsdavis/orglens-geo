@@ -174,7 +174,7 @@ const OrganizationGraph = ({ repositories, contributors }) => {
     // }, [fitView]); // Include fitView if you keep onInit
 
     return (
-        <div className="graph-container relative w-full h-[600px] rounded-lg bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
+        <div className="graph-container relative w-full h-[70vh] rounded-lg bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
              {isLayouting && (
                  <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, background: 'rgba(255,255,255,0.8)', padding: '5px 10px', borderRadius: '5px' }}>
                      Calculating layout...
@@ -190,7 +190,7 @@ const OrganizationGraph = ({ repositories, contributors }) => {
                 // fitView // fitView is now triggered manually after layout
                 fitViewOptions={{ padding: 0.15 }}
                 minZoom={0.1}
-                maxZoom={2}
+                maxZoom={1}
                 attributionPosition="bottom-right"
                 elementsSelectable={true}
                 nodesDraggable={true}
@@ -198,17 +198,6 @@ const OrganizationGraph = ({ repositories, contributors }) => {
             >
                 <Background color="#e0e0e0" gap={20} size={1.5} />
                 <Controls />
-                <MiniMap
-                    nodeStrokeWidth={3}
-                    zoomable
-                    pannable
-                    nodeColor={(node) => {
-                        if (node.type === 'repository') return '#60a5fa'; // Blue for repo
-                        return '#34d399'; // Green for contributor
-                    }}
-                    style={{ backgroundColor: 'rgba(241, 245, 249, 0.8)' }}
-                    maskColor="rgba(203, 213, 225, 0.6)"
-                />
             </ReactFlow>
         </div>
     );

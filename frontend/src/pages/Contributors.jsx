@@ -51,11 +51,16 @@ export default function Contributors() {
               <div className="flex shrink-0 items-center gap-x-4">
                 <div className="hidden sm:flex sm:flex-col sm:items-end">
                   {/* Display summary or role if available */}
-                  <p className="text-sm leading-6 text-gray-900">{person.summary?.split('.')[0] || 'Contributor'}</p>
-                   {/* Example: Could show 'Last active' data if available */}
-                   {/* <p className="mt-1 text-xs leading-5 text-gray-500">
-                     Last active <time dateTime={person.updated_at}>{new Date(person.updated_at).toLocaleDateString()}</time>
-                   </p> */}
+                   <div className="flex gap-5 mt-2">
+              <div className="text-center">
+                <div className="text-sm font-semibold">{person.works.reduce((acc, work) => acc + work.issues.length, 0) || 0}</div>
+                <div className="text-xs text-gray-500">Resolved Issues</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-semibold">{person.works.reduce((acc, work) => acc + work.commits.length, 0) || 0}</div>
+                <div className="text-xs text-gray-500">Commits</div>
+              </div>
+            </div>
                 </div>
                  {/* Keep the chevron for visual cue, even though the link covers the whole item */}
                 {/* <ChevronRightIcon aria-hidden="true" className="size-5 flex-none text-gray-400" /> */}
