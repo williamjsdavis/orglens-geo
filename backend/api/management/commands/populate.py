@@ -17,7 +17,8 @@ def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
     try:
         parsed = urlparse(url)
         if parsed.netloc.lower() != 'github.com':
-            print(f"Warning: URL '{url}' is not a standard GitHub URL.")
+            # Suppress warning in management command unless needed for debugging
+            # print(f"Warning: URL '{url}' is not a standard GitHub URL.")
             return None
         path_parts = [part for part in parsed.path.strip('/').split('/') if part]
         if len(path_parts) >= 2:
@@ -26,10 +27,10 @@ def parse_github_url(url: str) -> Optional[Tuple[str, str]]:
             if repo.endswith('.git'): repo = repo[:-4]
             return owner, repo
         else:
-            print(f"Warning: Could not parse owner/repo from URL '{url}'. Path: {parsed.path}")
+            # print(f"Warning: Could not parse owner/repo from URL '{url}'. Path: {parsed.path}")
             return None
     except Exception as e:
-        print(f"Error parsing URL '{url}': {e}")
+        # print(f"Error parsing URL '{url}': {e}")
         return None
 
 # --- Django Management Command ---
@@ -86,11 +87,16 @@ class Command(BaseCommand):
 
         total_contributors = len(contributors_data)
         processed_contributors = 0
+        repo_creation_count = 0
+        repo_work_count = 0
+        issue_count = 0
+        commit_count = 0
+
 
         for contributor_data in contributors_data:
             username = contributor_data.get('username')
             if not username:
-                self.stdout.write(self.style.WARNING("Skipping contributor entry with missing username."))
+                # self.stdout.write(self.style.WARNING("Skipping contributor entry with missing username."))
                 continue
 
             # --- 1. Create or Update Contributor ---
@@ -104,9 +110,7 @@ class Command(BaseCommand):
             )
             contributor_cache[username] = contributor
             processed_contributors += 1
-            action = "Created" if created else "Updated"
             # Optional: reduce verbosity
-            # self.stdout.write(f"[{processed_contributors}/{total_contributors}] {action} contributor: {username}")
             if created and processed_contributors % 50 == 0: # Log progress less frequently
                  self.stdout.write(f"Processed {processed_contributors}/{total_contributors} contributors...")
 
@@ -116,7 +120,7 @@ class Command(BaseCommand):
             for work_data in works_data:
                 repo_url = work_data.get('repository_url')
                 if not repo_url:
-                    self.stdout.write(self.style.WARNING(f"Skipping work entry for contributor {username} due to missing repository_url."))
+                    # self.stdout.write(self.style.WARNING(f"Skipping work entry for contributor {username} due to missing repository_url."))
                     continue
 
                 # --- 3. Create or Update Repository ---
@@ -124,7 +128,7 @@ class Command(BaseCommand):
                 if not repository_obj:
                     parsed_repo = parse_github_url(repo_url)
                     if not parsed_repo:
-                        self.stdout.write(self.style.WARNING(f"Skipping repository {repo_url} for contributor {username} due to invalid URL format."))
+                        # self.stdout.write(self.style.WARNING(f"Skipping repository {repo_url} for contributor {username} due to invalid URL format."))
                         continue
                     owner, repo_name = parsed_repo
                     full_name = f"{owner}/{repo_name}"
@@ -139,9 +143,8 @@ class Command(BaseCommand):
                         }
                     )
                     repo_cache[repo_url] = repository_obj
-                    repo_action = "Created" if repo_created else "Found"
-                    if repo_created: # Only log creation to avoid spamming updates
-                         self.stdout.write(f"  - {repo_action} repository: {full_name} ({repo_url})")
+                    if repo_created:
+                        repo_creation_count += 1
 
 
                 # --- 4. Create or Update RepositoryWork ---
@@ -152,6 +155,8 @@ class Command(BaseCommand):
                         'summary': '', # Set RepositoryWork summary to empty or customize as needed
                     }
                 )
+                if work_created:
+                    repo_work_count += 1
 
 
                 # --- 5. Create or Update Issues for this RepositoryWork ---
@@ -159,18 +164,20 @@ class Command(BaseCommand):
                 for issue_data in issues_data:
                     issue_url = issue_data.get('url')
                     if not issue_url:
-                        # self.stdout.write(self.style.WARNING(f"      - Skipping issue for {username} in {repository_obj.name} due to missing URL."))
                         continue
 
-                    issue_title = issue_data.get('title', 'No Title Provided')
+                    # --- MODIFICATION START ---
                     issue, issue_created = Issue.objects.update_or_create(
                         work=repo_work,
                         url=issue_url,
                         defaults={
                             'raw_data': issue_data, # Keep original issue data snippet
-                            'summary': issue_title,
+                            'summary': '', # Set summary to empty as requested
                         }
                     )
+                    # --- MODIFICATION END ---
+                    if issue_created:
+                        issue_count += 1
 
 
                 # --- 6. Create or Update Commits for this RepositoryWork ---
@@ -178,34 +185,28 @@ class Command(BaseCommand):
                 for commit_data in commits_data:
                     commit_url = commit_data.get('url')
                     if not commit_url:
-                        # self.stdout.write(self.style.WARNING(f"      - Skipping commit for {username} in {repository_obj.name} due to missing URL."))
                         continue
 
-                    # --- MODIFICATION START ---
-                    # Construct the specific subset dictionary for the raw_data field
-                    # Use .get() for safety in case keys are missing in source JSON
                     commit_raw_data_subset = {
                         'message': commit_data.get('message'),
                         'files_changed': commit_data.get('files_changed'),
                         'diff_patch': commit_data.get('diff_patch')
                     }
-                    # --- MODIFICATION END ---
 
-
-                    # Use url and the specific RepositoryWork link for uniqueness
                     commit, commit_created = Commit.objects.update_or_create(
                         work=repo_work,
                         url=commit_url,
                         defaults={
-                            # --- MODIFIED FIELDS ---
                             'raw_data': commit_raw_data_subset, # Store the specific subset
                             'summary': '', # Set summary to empty as requested
-                            # --- END MODIFIED FIELDS ---
                         }
                     )
-                    # Optional: reduce verbosity
-                    # commit_action = "Created" if commit_created else "Updated"
-                    # self.stdout.write(f"      - {commit_action} commit: {commit_url}")
+                    if commit_created:
+                        commit_count += 1
 
         self.stdout.write(self.style.SUCCESS(f"\nProcessed {processed_contributors} contributors."))
+        self.stdout.write(f"Created/updated {len(repo_cache)} repositories ({repo_creation_count} new).")
+        self.stdout.write(f"Created {repo_work_count} new RepositoryWork links.")
+        self.stdout.write(f"Created {issue_count} new issues.")
+        self.stdout.write(f"Created {commit_count} new commits.")
         self.stdout.write(self.style.SUCCESS("Database population completed successfully!"))
