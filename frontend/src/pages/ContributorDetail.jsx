@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import ReactMarkdown from 'react-markdown';
@@ -34,6 +34,61 @@ export default function ContributorDetail() {
   
   // Track expanded state for commits and issues sections
   const [expandedSections, setExpandedSections] = useState({});
+
+useEffect(() => {
+    // Create the main SDK script element
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@play-ai/agent-web-sdk';
+    script.type = 'text/javascript';
+    script.async = true; // Load asynchronously
+
+    let playAiInstance = null; // Keep track of the instance if needed for cleanup
+
+    // Define the function to run after the script loads
+    script.onload = () => {
+      // Ensure PlayAI is loaded before calling open
+      if (window.PlayAI && typeof window.PlayAI.open === 'function') {
+        // Assuming PlayAI.open might return an instance or identifier
+        // Store it if needed for cleanup, otherwise just call open
+        playAiInstance = window.PlayAI.open('-Klgfo8pcIoIq7EkCQWiz'); 
+      } else {
+        console.error('PlayAI SDK not loaded or open function not available.');
+      }
+    };
+
+    // Handle script loading errors
+    script.onerror = () => {
+      console.error('Failed to load the PlayAI SDK script.');
+    };
+
+    // Append the script to the document body
+    document.body.appendChild(script);
+
+    // Cleanup function: remove the script and potentially close the SDK instance
+    return () => {
+      // Remove the script tag from the DOM
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+      
+      // Attempt to close or clean up the PlayAI instance if the SDK provides a method
+      // Check the PlayAI SDK documentation for the correct cleanup procedure
+      if (window.PlayAI && typeof window.PlayAI.close === 'function') {
+        try {
+          // Pass the instance or identifier if required by the close method
+          window.PlayAI.close(playAiInstance); 
+          console.log('PlayAI SDK closed.');
+        } catch (error) {
+          console.error('Error closing PlayAI SDK:', error);
+        }
+      } else {
+         // If no close method, you might need to manually remove any UI elements 
+         // or listeners the SDK added, or nullify the global object if safe.
+         // Example: window.PlayAI = null; (Use with caution)
+         console.warn('PlayAI SDK does not have a close method or is already removed.');
+      }
+    };
+  }, []); // Empty dependency array ensures this runs only on mount and unmount
   
   const toggleSection = (repoId, sectionType) => {
     const key = `${repoId}-${sectionType}`;

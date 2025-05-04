@@ -1,2 +1,32 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+@keyframes pulse-gradient {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.6;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse-gradient {
+  background: linear-gradient(to right, #4f46e5, #3b82f6, #4f46e5);
+  background-size: 200% 100%;
+  animation: pulse-gradient 2s infinite;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 0.4em;
+  font-size: 1.2em;
+  line-height: 0.8;
+  vertical-align: middle;
+  color: #4f46e5;
+}

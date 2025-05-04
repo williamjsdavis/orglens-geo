@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from api.views import get_data, llm_stream_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/get_data/', get_data, name='get_data'),
+    path('api/llm_stream/', llm_stream_view, name='llm_stream')
 ]

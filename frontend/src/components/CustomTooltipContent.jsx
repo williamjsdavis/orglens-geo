@@ -1,8 +1,14 @@
 // New component to hold the tooltip's inner content structure
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 
 const CustomTooltipContent = ({ content }) => {
   if (!content) return null; // Should not happen if used correctly but good practice
+
+  let truncatedSummary = content.summary;
+    if (truncatedSummary && truncatedSummary.length > 500) {
+        truncatedSummary = truncatedSummary.substring(0, 100) + '...';
+        }
 
   return (
     <div className="flex items-start gap-3 z-50">
@@ -35,7 +41,7 @@ const CustomTooltipContent = ({ content }) => {
               </div>
             </div>
             {content.summary && ( // Show summary only if available
-               <p className="text-sm mt-2 break-words">{content.summary}</p>
+               <p className="text-sm mt-2 break-words prose"><ReactMarkdown>{truncatedSummary}</ReactMarkdown></p>
             )}
           </>
         )}

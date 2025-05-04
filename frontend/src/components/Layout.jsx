@@ -18,6 +18,7 @@ import {
     UsersIcon,
     XMarkIcon,
 } from '@heroicons/react/24/outline';
+import LlamaChat from './LlamaChat';
 // Unused imports removed
 
 // --- Define App Navigation ---
@@ -154,7 +155,7 @@ export default function Layout() {
                                 src={logo}
                                 className="h-8 w-auto"
                             />
-                            <h2 className="ml-3 text-lg font-semibold text-white">Llet's check</h2>
+                            <h2 className="ml-3 text-lg font-semibold text-white">OrgLens</h2>
                         </div>
                         <nav className="flex flex-1 flex-col">
                             <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -243,9 +244,12 @@ export default function Layout() {
 
                 {/* Main Content Area */}
                 <main className="py-10 lg:pl-72 h-full">
-                    <div className="px-4 sm:px-6 lg:px-8">
+                    <div className="px-4 sm:px-6 lg:px-8 pb-20"> {/* Added padding bottom for chat component */}
                         <Outlet />
                     </div>
+                    
+                    {/* Add the LlamaChat component here */}
+                    <LlamaChat />
                 </main>
             </div>
         </>

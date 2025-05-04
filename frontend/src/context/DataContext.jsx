@@ -16,16 +16,8 @@ export const DataProvider = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500)); // 0.5 second delay
 
-      // --- MOCK DATA ---
-      setRepositories(mockData.repositories);
-      setContributors(mockData.contributors);
-
-      // --- API FETCH (Example - uncomment and adapt when ready) ---
-      /*
-      const backendUrl = '/api/github-data'; // Replace with your actual API endpoint
+      const backendUrl = 'http://localhost:8000/api/get_data/'; // Replace with your actual API endpoint
       const response = await fetch(backendUrl);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -33,7 +25,7 @@ export const DataProvider = ({ children }) => {
       const data = await response.json();
       setRepositories(data.repositories || []);
       setContributors(data.contributors || []);
-      */
+    
 
       setIsLoading(false);
     } catch (e) {

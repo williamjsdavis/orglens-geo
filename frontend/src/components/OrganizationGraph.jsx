@@ -29,28 +29,26 @@ const elk = new ELK();
 const elkOptions = {
     'elk.algorithm': 'org.eclipse.elk.layered', // Use layered algorithm
     'elk.direction': 'DOWN', // Arrange layers top-to-bottom
-    'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': '100', // Space between layers
-    'org.eclipse.elk.spacing.nodeNode': '80', // Space between nodes within a layer
+    'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': '120', // Increased space between repo/contributor layers
+    'org.eclipse.elk.spacing.nodeNode': '90', // Space between nodes within a layer/partition
     'org.eclipse.elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX', // Or 'BRANDES_KOEPF' or 'SIMPLE'
     'org.eclipse.elk.layered.cycleBreaking.strategy': 'GREEDY', // Helps with cycles if any
-    // Assign nodes to partitions (layers) based on type
+    // Activate partitioning. Partitions will be assigned per-node.
     'org.eclipse.elk.partitioning.activate': 'true',
 };
 
 const getLayoutedElements = async (nodes, edges, options = {}) => {
     // Elkjs needs nodes with 'id', 'width', 'height' and edges with 'id', 'source', 'target'
+    // Nodes should already have their individual layoutOptions (like partition) assigned
     const graph = {
         id: 'root',
-        layoutOptions: { ...elkOptions, ...options },
+        layoutOptions: { ...elkOptions, ...options }, // Root layout options
         children: nodes.map((node) => ({
             ...node,
             // Pass width and height obtained from node.style or default
             width: node.style?.width || 150,
             height: node.style?.height || 50,
-            // Assign partition based on node type for layering
-            layoutOptions: {
-                'org.eclipse.elk.partitioning.partition': node.type === 'repository' ? 0 : 1, // Repos layer 0, Contributors layer 1
-            },
+            // layoutOptions specific to the node (like partition) are expected to be in 'node'
         })),
         edges: edges,
     };
@@ -88,6 +86,7 @@ const OrganizationGraph = ({ repositories, contributors }) => {
         // --- 1. Prepare Nodes and Edges (without initial positions) ---
         const initialNodes = [];
         const initialEdges = [];
+        const MAX_CONTRIBUTORS_PER_ROW = 10; // Define max contributors per visual row/partition
 
         repositories.forEach((repo) => {
             initialNodes.push({
@@ -96,18 +95,30 @@ const OrganizationGraph = ({ repositories, contributors }) => {
                 data: repo,
                 position: { x: 0, y: 0 }, // Initial position (will be overridden)
                 // Ensure style has width/height for ELK
-                style: { width: 220, height: 150 }
+                style: { width: 220, height: 150 },
+                // Assign repositories to partition 0
+                layoutOptions: {
+                    'org.eclipse.elk.partitioning.partition': 0,
+                },
             });
         });
 
-        contributors.forEach((contributor) => {
+        contributors.forEach((contributor, index) => {
+            // Calculate partition index for contributors (starting from 1)
+            // Contributors with index 0-9 go to partition 1, 10-19 to partition 2, etc.
+            const partitionIndex = 1 + Math.floor(index / MAX_CONTRIBUTORS_PER_ROW);
+
             initialNodes.push({
                 id: `user-${contributor.id}`,
                 type: 'contributor', // Keep type for partitioning
                 data: contributor,
                 position: { x: 0, y: 0 }, // Initial position (will be overridden)
                 // Ensure style has width/height for ELK
-                style: { width: 180, height: 60 }
+                style: { width: 180, height: 60 },
+                // Assign contributors to calculated partitions
+                layoutOptions: {
+                    'org.eclipse.elk.partitioning.partition': partitionIndex,
+                },
             });
 
             contributor.works.forEach(work => {
@@ -190,7 +201,7 @@ const OrganizationGraph = ({ repositories, contributors }) => {
                 // fitView // fitView is now triggered manually after layout
                 fitViewOptions={{ padding: 0.15 }}
                 minZoom={0.1}
-                maxZoom={1}
+                maxZoom={3}
                 attributionPosition="bottom-right"
                 elementsSelectable={true}
                 nodesDraggable={true}
