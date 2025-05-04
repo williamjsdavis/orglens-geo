@@ -26,39 +26,41 @@ LLAMA_BASE_URL = "https://api.llama.com/compat/v1/"
 ISSUES_SYSTEM_PROMPT = """You are an AI assistant generating *detailed technical summaries* of GitHub issues based on their raw JSON data.
 Focus on the *specific technical problem* being addressed, the *proposed solution or task*, and any key *technical components, features, or modules* mentioned in the 'title' or 'body'.
 Be precise about *what* the issue entails technically (e.g., "Bug fix for null reference in UserAuth module during login", "Feature request to add pagination support to the /items API endpoint", "Task to refactor the data processing pipeline for efficiency").
+If the issue title or body mentions specific functions, classes, or files involved, **ensure these details are included** (e.g., '...issue in the `calculateTotal` function within `BillingService.java`...').
 Avoid generalizations; stick to the technical facts presented in the data.
 If the provided data lacks sufficient technical detail (e.g., missing title/body), output only the text "Cannot summarize".
-Output should be a concise technical statement (2-3 sentences max). Do not include markdown formatting.
+Output should be a concise technical statement (2-3 sentences max) **formatted as Markdown**.
 """
 
 COMMITS_SYSTEM_PROMPT = """You are an AI assistant generating *detailed technical summaries* of GitHub commits based on their raw JSON data.
 Focus *precisely* on the *technical change implemented* in this commit, primarily using the 'message' field.
 Describe *what code was added, removed, or modified* and its *specific technical purpose* (e.g., "Fixed null pointer exception in UserAuth module by adding a check", "Refactored data fetching logic in ProductService for performance using async methods", "Added CRUD endpoints for the new 'UserProfile' resource").
-If the message is brief or generic, use file paths/types from 'files_changed' only to *infer the nature or scope of the technical change* (e.g., "Updated project documentation files", "Modified several frontend React components related to user settings", "Refactored database migration scripts").
+**Explicitly mention the names of key functions, classes, methods, or files that were added, removed, or modified** if this information is available in the commit message or file list (e.g., '...modified the `getUserData` function in `api/handlers.js`...', '...added tests in `tests/test_utils.py`...').
+If the message is brief or generic, use file paths/types from 'files_changed' only to *infer the nature or scope of the technical change*, still attempting to identify specific files if possible (e.g., "Updated project documentation files (`README.md`, `CONTRIBUTING.md`)", "Modified several frontend React components (`src/components/UserSettings.jsx`, `src/components/ProfileEditor.jsx`) related to user settings", "Refactored database migration scripts (`db/migrations/001_init.sql`)").
 Be specific and technical. Avoid general statements.
 If the provided data lacks a meaningful message and file context, output only the text "Cannot summarize".
-Output should be a concise technical statement (1-2 sentences max). Do not include markdown formatting.
+Output should be a concise technical statement (1-2 sentences max) **formatted as Markdown**.
 """
 
 REPO_WORK_SYSTEM_PROMPT = """You are an AI assistant summarizing a contributor's *specific contributions* within *one particular GitHub repository*.
-You will receive summaries of individual issues and commits detailing the technical tasks performed by the contributor in this repository.
+You will receive Markdown summaries of individual issues and commits detailing the technical tasks performed by the contributor in this repository.
 *Synthesize* these technical details into a coherent paragraph (2-4 sentences). Do not simply list the individual summaries.
 Describe the contributor's *primary activities and areas of focus within this specific repository*.
 *Identify and group the types of tasks* performed (e.g., "focused on bug fixing in the backend API", "primarily added new frontend features using React", "contributed heavily to improving test coverage and CI pipelines", "specialized in optimizing database queries").
-Mention key technical areas or components they worked on *in this repo* if a pattern emerges.
+Mention key technical areas or components they worked on *in this repo* if a pattern emerges from the detailed summaries.
 The summary should reflect *what kind of work they did here*, bridging individual technical tasks towards a qualitative description of their role *in this repository*.
 If the provided list of summaries is empty or uninformative, output only the text "Cannot summarize".
-The summary should be plain text.
+The final summary should be **formatted as Markdown**.
 """
 
-CONTRIBUTOR_SYSTEM_PROMPT = """You are an AI assistant creating a *high-level profile summary* for a GitHub contributor based on summaries of their work across different repositories.
-You will be given a list of summaries describing the contributor's work and focus within various repositories.
+CONTRIBUTOR_SYSTEM_PROMPT = """You are an AI assistant creating a *high-level profile summary* for a GitHub contributor based on Markdown summaries of their work across different repositories.
+You will be given a list of Markdown summaries describing the contributor's work and focus within various repositories.
 Synthesize these points into a coherent paragraph (3-5 sentences) describing the contributor's *overall technical profile*, *recurring themes* in their work *across different projects*, and *inferred technical skills* or areas of deep expertise.
 Focus on identifying *consistent patterns*: Does the contributor specialize (e.g., backend, frontend, data science, infrastructure)? What is their apparent primary role or contribution style? What specific technologies, languages, or architectural domains do they frequently engage with? Are their contributions broad or focused?
 *Generalize and infer skills* from the repository-specific summaries to paint a picture of the *contributor as a whole*. Assess their likely strengths and areas of expertise based *only* on the provided work summaries.
 Example output: "This contributor consistently focuses on backend development across multiple projects, demonstrating expertise in Python and Django. They frequently tackle complex bug fixes in API layers and contribute significantly to database schema design and optimization. Their work suggests strong analytical skills and a deep understanding of server-side application architecture."
 If the provided list of summaries is empty or uninformative, output only the text "Cannot summarize".
-The summary should be plain text.
+The final summary should be **formatted as Markdown**.
 """
 
 
