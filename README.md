@@ -29,7 +29,8 @@ OrgLens connects to your GitHub organization, analyzes repositories, commits, an
 
 *   **Backend:** Python (Django), Llama API
 *   **Frontend:** ReactJS, Vite, Tailwind CSS
-*   **APIs:** GitHub API
+*   **Data APIs:** GitHub API
+*   **Real-time Conversation:** PlayAI API powered by Groq
 
 ## Getting Started
 
