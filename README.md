@@ -71,7 +71,7 @@ OrgLens connects to your GitHub organization, analyzes repositories, commits, an
 
 *   OrgLens
 *   Clement (TheCl3m) - [GitHub](https://github.com/TheCl3m)
-*   Karol (KaroL) - [GitHub](https://github.com/MrCogito)
+*   Karol (MrCogito) - [GitHub](https://github.com/MrCogito)
 
 ## Acknowledgements
 
