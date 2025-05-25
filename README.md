@@ -38,8 +38,8 @@ OrgLens connects to your GitHub organization, analyzes repositories, commits, an
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/TheCl3m/llama-hack]
-    cd orglens
+    git clone https://github.com/TheCl3m/llama-hack
+    cd llama-hack
     ```
 2.  **Set up Backend (Django):**
     ```bash
