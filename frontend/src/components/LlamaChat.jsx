@@ -160,16 +160,16 @@ const LlamaChat = () => {
                       </p>
                       <ul className="mt-2 space-y-1">
                         <li className="text-sm text-indigo-600 hover:underline cursor-pointer"
-                            onClick={() => setPrompt("Who's the expert on the backend API?")}>
-                          • Who's the expert on the backend API?
+                            onClick={() => setPrompt("How do these repositories work together?")}>
+                          • How do these repositories work together?
                         </li>
                         <li className="text-sm text-indigo-600 hover:underline cursor-pointer"
-                            onClick={() => setPrompt("What's the main focus of the repository structure?")}>
-                          • What's the main focus of the repository structure?
+                            onClick={() => setPrompt("What's the main focus point of the repositories?")}>
+                          • What's the main focus point of the repositories?
                         </li>
                         <li className="text-sm text-indigo-600 hover:underline cursor-pointer"
-                            onClick={() => setPrompt("Who should I talk to about frontend components?")}>
-                          • Who should I talk to about frontend components?
+                            onClick={() => setPrompt("Who implemented the most recent significant changes?")}>
+                          • Who implemented the most recent significant changes?
                         </li>
                       </ul>
                     </div>

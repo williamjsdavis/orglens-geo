@@ -35,7 +35,7 @@ const teams = [
 
 // Mock user data (from old layout)
 const user = {
-    name: 'Zuck',
+    name: 'Will',
     imageUrl: llama
 };
 
@@ -217,7 +217,7 @@ export default function Layout() {
                                             className="size-8 rounded-full bg-gray-800" // Style from new example
                                         />
                                         <span className="sr-only">Your profile</span>
-                                        <span aria-hidden="true">{user.name}</span> {/* Use your user name (Zuck) */}
+                                        <span aria-hidden="true">{user.name}</span> {/* Use your user name (Will) */}
                                     </a>
                                 </li>
                             </ul>

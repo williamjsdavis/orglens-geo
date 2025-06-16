@@ -218,7 +218,7 @@ export default function Dashboard() {
             <div className="flex items-center">
               <PresentationChartBarIcon className="h-8 w-8 text-white mr-4" />
               <div>
-                <h1 className="text-2xl font-bold text-white">Hi Zuck,</h1>
+                <h1 className="text-2xl font-bold text-white">Hi Will,</h1>
                 <p className="text-indigo-100 mt-1">
                   Here's all you need to know about the Llama team.
                 </p>
