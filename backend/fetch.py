@@ -451,8 +451,8 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
 # --- Main Execution (Keep the existing main block) ---
 if __name__ == "__main__":
     repository_urls = [
-        "https://github.com/meta-llama/llama-models",
-        "https://github.com/meta-llama/codellama"
+        "https://github.com/JuliaGeometry/Meshes.jl",
+        "https://github.com/JuliaEarth/GeoStats.jl"
     ]
 
     if not GITHUB_TOKEN:
@@ -498,7 +498,7 @@ if __name__ == "__main__":
     print(f"--- Found data for {len(final_contributor_list)} unique contributors across processed repositories ---")
 
 
-    output_filename = "github_contributors_simplified_issues_commits_v4.json" # Changed filename
+    output_filename = "github_contributors_Meshes_GeoStats_v1.json" # First run of geo-related repos
     try:
         print(f"\nAttempting to save data to {output_filename}...")
         with open(output_filename, 'w', encoding='utf-8') as f:
