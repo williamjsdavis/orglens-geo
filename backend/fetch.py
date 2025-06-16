@@ -450,14 +450,14 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
 
 # --- Main Execution (Keep the existing main block) ---
 if __name__ == "__main__":
-    # repository_urls = [
-    #     "https://github.com/JuliaGeometry/Meshes.jl",
-    #     "https://github.com/JuliaEarth/GeoStats.jl"
-    # ]
     repository_urls = [
-        "https://github.com/simpeg/simpeg",
-        "https://github.com/simpeg/discretize"
+        "https://github.com/JuliaGeometry/Meshes.jl",
+        "https://github.com/JuliaEarth/GeoStats.jl"
     ]
+    # repository_urls = [
+    #     "https://github.com/simpeg/simpeg",
+    #     "https://github.com/simpeg/discretize"
+    # ]
 
     if not GITHUB_TOKEN:
         print("Warning: GITHUB_TOKEN environment variable not found.")
