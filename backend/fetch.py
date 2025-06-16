@@ -450,9 +450,13 @@ def process_repositories(repo_urls: List[str], token: Optional[str] = None) -> D
 
 # --- Main Execution (Keep the existing main block) ---
 if __name__ == "__main__":
+    # repository_urls = [
+    #     "https://github.com/JuliaGeometry/Meshes.jl",
+    #     "https://github.com/JuliaEarth/GeoStats.jl"
+    # ]
     repository_urls = [
-        "https://github.com/JuliaGeometry/Meshes.jl",
-        "https://github.com/JuliaEarth/GeoStats.jl"
+        "https://github.com/simpeg/simpeg",
+        "https://github.com/simpeg/discretize"
     ]
 
     if not GITHUB_TOKEN:
@@ -498,7 +502,8 @@ if __name__ == "__main__":
     print(f"--- Found data for {len(final_contributor_list)} unique contributors across processed repositories ---")
 
 
-    output_filename = "github_contributors_Meshes_GeoStats_v1.json" # First run of geo-related repos
+    # output_filename = "github_contributors_Meshes_GeoStats_v1.json" # First run of geo-related repos
+    output_filename = "github_contributors_SimPEG_v1.json" # First run of SimPEG repos
     try:
         print(f"\nAttempting to save data to {output_filename}...")
         with open(output_filename, 'w', encoding='utf-8') as f:
